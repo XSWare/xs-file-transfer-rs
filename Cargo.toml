@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 xs-rust-library = { git = "https://github.com/CaptainOachkatzl/XSRustLibrary" }
+directories = { version="4.0.1" }
