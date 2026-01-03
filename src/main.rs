@@ -1,66 +1,60 @@
+mod command_resolver;
+mod header;
+
 use std::fs::{File, create_dir_all};
-use std::io::Write;
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
-use std::str::from_utf8;
-use std::{u8, thread};
 
-use directories::ProjectDirs;
+use bytemuck::{bytes_of, from_bytes};
+use xs_rust_library::connection::Connection;
 use xs_rust_library::network::packet_connection::PacketConnection;
-use xs_rust_library::network::packet_receive_event::PacketReceiveEvent;
+
+use crate::command_resolver::CommandResolver;
+use crate::header::Header;
 
 fn main() {
-  let listener = TcpListener::bind("0.0.0.0:3648").unwrap();
-  loop {
-    let stream = listener.accept().unwrap().0;
-    thread::spawn(|| {
-      initialize_accepted_connection(stream);
-    }); 
-  }
+    let mut command_resolver = CommandResolver::new();
+    match command_resolver.read_next_command().unwrap() {
+        command_resolver::Command::Send(args) => {
+            let stream = TcpStream::connect("127.0.0.1:3648").unwrap();
+            let connection = PacketConnection::new(stream, 1024);
+            send_file(connection, &args[0], &args[1]);
+        }
+        command_resolver::Command::Receive(directory) => {
+            let listener = TcpListener::bind("0.0.0.0:3648").unwrap();
+            let stream = listener.accept().unwrap().0;
+            let connection = PacketConnection::new(stream, 1024);
+            receive_file(connection, &directory);
+        }
+    }
 }
 
-fn initialize_accepted_connection(stream: TcpStream) {
-  let connection = PacketConnection::new(stream, 1024);
-  let mut receive_loop = PacketReceiveEvent::new(connection);
-
-  let handler = Box::new(|data: &Vec<u8>| {
-    println!("received {} bytes", data.len());
-    read_file_from_xs(data);
-  });
-
-  let _sub = receive_loop.subscribe(handler);
-  receive_loop.start();
+fn send_file(mut connection: PacketConnection, directory: &str, sub_path: &str) {
+    let file_path = format!("{directory}{sub_path}");
+    let mut file = File::open(file_path).unwrap();
+    let mut file_content = Vec::new();
+    file.read_to_end(&mut file_content).unwrap();
+    let header = Header::new(file_content.len(), sub_path.len());
+    let mut data = Vec::with_capacity(size_of::<Header>() + file_content.len());
+    data.extend_from_slice(bytes_of(&header));
+    data.extend_from_slice(sub_path.as_bytes());
+    data.extend_from_slice(&file_content);
+    connection.send(&data).unwrap();
 }
 
-fn read_file_from_xs(data: &Vec<u8>) {
-  let mut cursor: usize = 0;
-
-  let file_name_length = data[0] as usize;
-  cursor += 1;
-
-  let file_name = from_utf8(&data[cursor..cursor + file_name_length]).unwrap();
-  cursor += file_name_length;
-
-  println!("file name: {}", file_name);
-
-  cursor += 8; // data size
-  cursor += 1; // create file
-  cursor += 1; // last chunk
-  cursor += 1; // last file
-
-  let mut chunk_size_array = [0 as u8; 4];
-  chunk_size_array.clone_from_slice(&data[cursor..cursor + 4]);
-  let chunk_size = i32::from_le_bytes(chunk_size_array) as usize;
-  cursor += 4;
-
-  let file_content = &data[cursor..cursor + chunk_size];
-  println!("file content: {}", from_utf8(file_content).unwrap());
-
-  let project_dirs = ProjectDirs::from("", "", "XSFileTransfer").unwrap();
-  let directory = Path::new(project_dirs.config_dir().parent().unwrap());
-  let filepath = directory.join(file_name);
-
-  create_dir_all(directory).unwrap();
-  let mut file = File::create(filepath).unwrap();
-  file.write_all(file_content).unwrap();
+fn receive_file(mut connection: PacketConnection, directory: &str) {
+    let data = connection.receive().unwrap();
+    let header: Header = *from_bytes(&data[..size_of::<Header>()]);
+    let mut cursor = size_of::<Header>();
+    let sub_path: &str = str::from_utf8(&data[cursor..cursor + header.sub_path_length()]).unwrap();
+    cursor += header.sub_path_length();
+    let file_content = &data[cursor..cursor + header.file_content_length()];
+    let file_path = format!("{directory}{sub_path}");
+    if let Some(sub_directory) = Path::new(&file_path).parent() {
+        create_dir_all(sub_directory).unwrap();
+    };
+    let mut file = File::create(file_path).unwrap();
+    file.write_all(file_content).unwrap();
+    file.flush().unwrap();
 }
