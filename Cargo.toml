@@ -12,3 +12,5 @@ bytemuck = { version = "*", features = ["derive"] }
 eframe = "*"
 egui = "*"
 env_logger = "*"
+thiserror = "*"
+displaydoc = "*"

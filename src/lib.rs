@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 mod command_resolver;
+mod connection_control;
 mod header;
 mod ui;
 
@@ -14,10 +15,18 @@ use xs_rust_library::connection::Connection;
 use xs_rust_library::network::packet_connection::PacketConnection;
 
 use crate::command_resolver::CommandResolver;
+use crate::connection_control::ConnectionControl;
 use crate::header::Header;
 
+struct Controls {
+    connection_control: ConnectionControl,
+}
+
 pub fn run() {
-    ui::show().unwrap();
+    let controls = Controls {
+        connection_control: ConnectionControl::default(),
+    };
+    ui::show(controls).unwrap();
     // let mut command_resolver = CommandResolver::new();
     // match command_resolver.read_next_command().unwrap() {
     //     command_resolver::Command::Send(args) => {
