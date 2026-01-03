@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+
 mod command_resolver;
 mod header;
 mod ui;
@@ -15,20 +17,21 @@ use crate::command_resolver::CommandResolver;
 use crate::header::Header;
 
 pub fn run() {
-    let mut command_resolver = CommandResolver::new();
-    match command_resolver.read_next_command().unwrap() {
-        command_resolver::Command::Send(args) => {
-            let stream = TcpStream::connect("127.0.0.1:3648").unwrap();
-            let connection = PacketConnection::new(stream, 1024);
-            send_file(connection, &args[0], &args[1]);
-        }
-        command_resolver::Command::Receive(directory) => {
-            let listener = TcpListener::bind("0.0.0.0:3648").unwrap();
-            let stream = listener.accept().unwrap().0;
-            let connection = PacketConnection::new(stream, 1024);
-            receive_file(connection, &directory);
-        }
-    }
+    ui::show().unwrap();
+    // let mut command_resolver = CommandResolver::new();
+    // match command_resolver.read_next_command().unwrap() {
+    //     command_resolver::Command::Send(args) => {
+    //         let stream = TcpStream::connect("127.0.0.1:3648").unwrap();
+    //         let connection = PacketConnection::new(stream, 1024);
+    //         send_file(connection, &args[0], &args[1]);
+    //     }
+    //     command_resolver::Command::Receive(directory) => {
+    //         let listener = TcpListener::bind("0.0.0.0:3648").unwrap();
+    //         let stream = listener.accept().unwrap().0;
+    //         let connection = PacketConnection::new(stream, 1024);
+    //         receive_file(connection, &directory);
+    //     }
+    // }
 }
 
 fn send_file(mut connection: PacketConnection, directory: &str, sub_path: &str) {

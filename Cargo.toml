@@ -9,3 +9,6 @@ edition = "2024"
 xs-rust-library = { git = "https://github.com/CaptainOachkatzl/XSRustLibrary" }
 directories = { version = "6.0" }
 bytemuck = { version = "*", features = ["derive"] }
+eframe = "*"
+egui = "*"
+env_logger = "*"
