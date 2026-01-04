@@ -24,6 +24,8 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
         Box::new(|_cc| {
             Ok(Box::new(MainWindow {
                 connection_view: ConnectionView::new(controls),
+                send_view: SendView::default(),
+                receive_view: ReceiveView::default(),
                 error_log: controls.error_log.clone(),
             }))
         }),
@@ -32,6 +34,8 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
 
 struct MainWindow {
     connection_view: ConnectionView,
+    send_view: SendView,
+    receive_view: ReceiveView,
     error_log: Arc<ErrorLog>,
 }
 
@@ -47,9 +51,9 @@ impl eframe::App for MainWindow {
             ui.vertical(|ui| {
                 ui.add(&mut self.connection_view);
                 ui.separator();
-                ui.add(SendView);
+                ui.add(&mut self.send_view);
                 ui.separator();
-                ui.add(ReceiveView);
+                ui.add(&mut self.receive_view);
             });
         });
     }
