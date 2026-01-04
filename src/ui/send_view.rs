@@ -3,7 +3,8 @@ use std::{path::Path, sync::Arc};
 use egui::Widget;
 
 use crate::{
-    connection_control::ConnectionControl, error_log::ErrorLog, file_transmission::FileTransmission,
+    Controls, connection_control::ConnectionControl, error_log::ErrorLog,
+    file_transmission::FileTransmission,
 };
 
 pub struct SendView {
@@ -13,16 +14,16 @@ pub struct SendView {
 }
 
 impl SendView {
-    pub fn new(connection_control: Arc<ConnectionControl>, error_log: Arc<ErrorLog>) -> Self {
+    pub fn new(controls: &Controls) -> Self {
         Self {
             file_or_directory_path:
                 "D:\\Projects\\Rust\\XSRustyFileTransfer\\target\\debug\\test.txt".to_string(),
-            connection_control,
-            error_log,
+            connection_control: controls.connection_control.clone(),
+            error_log: controls.error_log.clone(),
         }
     }
 
-    fn send_file(&self) {
+    fn send(&self) {
         let path = Path::new(&self.file_or_directory_path);
         if !path.exists() || !path.is_file() {
             self.error_log.log("file does not exist".to_string());
@@ -74,7 +75,7 @@ impl Widget for &mut SendView {
         if !self.file_or_directory_path.is_empty() && self.connection_control.is_connected() {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
-                self.send_file();
+                self.send();
             }
 
             return edit_response | button_response;
