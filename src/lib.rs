@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod command_resolver;
 mod connection_control;
 mod error_log;
 mod file_transmission;
