@@ -42,6 +42,7 @@ impl ConnectionView {
 impl Widget for &mut ConnectionView {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         ui.vertical(|ui| {
+            ui.heading("Connection");
             let response = ui
                 .horizontal(|ui| {
                     let label_response = ui.label(format!(

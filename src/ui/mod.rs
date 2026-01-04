@@ -1,8 +1,13 @@
 mod connection_view;
+mod receive_view;
+mod send_view;
 
 use eframe::egui;
 
-use crate::{Controls, ui::connection_view::ConnectionView};
+use crate::{
+    Controls,
+    ui::{connection_view::ConnectionView, receive_view::ReceiveView, send_view::SendView},
+};
 
 pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -28,8 +33,12 @@ struct MainWindow {
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
+            ui.vertical(|ui| {
                 ui.add(&mut self.connection_view);
+                ui.separator();
+                ui.add(SendView);
+                ui.separator();
+                ui.add(ReceiveView);
             });
         });
     }
