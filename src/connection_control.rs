@@ -40,12 +40,10 @@ impl ConnectionControl {
         }
     }
 
-    pub fn connect(&self, addr: SocketAddr) -> Result<(), Error> {
-        {
-            let connection = self.connection.lock().unwrap();
-            if connection.is_some() {
-                return Err(Error::AlreadyConnected);
-            }
+    pub fn connect(&self, addr: SocketAddr) {
+        if self.is_connected() {
+            self.error_log.log(Error::AlreadyConnected.to_string());
+            return;
         }
 
         let cloned_connection = self.connection.clone();
@@ -61,16 +59,12 @@ impl ConnectionControl {
             *connection = Some(packet_connection);
             Ok(())
         });
-
-        Ok(())
     }
 
-    pub fn accept(&self) -> Result<(), Error> {
-        {
-            let connection = self.connection.lock().unwrap();
-            if connection.is_some() {
-                return Err(Error::AlreadyConnected);
-            }
+    pub fn accept(&self) {
+        if self.is_connected() {
+            self.error_log.log(Error::AlreadyConnected.to_string());
+            return;
         }
 
         let cloned_connection = self.connection.clone();
@@ -88,23 +82,30 @@ impl ConnectionControl {
             *connection = Some(packet_connection);
             Ok(())
         });
-
-        Ok(())
     }
 
-    pub fn disconnect(&self) -> Result<(), Error> {
-        let mut connection = self.connection.lock().unwrap();
-        if let Some(packet_connection) = connection.as_ref() {
-            packet_connection.shutdown(std::net::Shutdown::Both)?;
-            *connection = None;
-            Ok(())
-        } else {
-            Err(Error::AlreadyDisconnected)
-        }
+    pub fn disconnect(&self) {
+        self.execute_logged(|| {
+            let mut connection = self.connection.lock().unwrap();
+            if let Some(packet_connection) = connection.as_ref() {
+                packet_connection.shutdown(std::net::Shutdown::Both)?;
+                *connection = None;
+                Ok(())
+            } else {
+                Err(Error::AlreadyDisconnected)
+            }
+        });
     }
 
     pub fn is_connected(&self) -> bool {
         self.connection.lock().unwrap().is_some()
+    }
+
+    fn execute_logged(&self, f: impl FnOnce() -> Result<(), Error>) {
+        let res = f();
+        if let Err(error) = res {
+            self.error_log.log(error.to_string());
+        }
     }
 
     fn execute_async(&self, f: impl FnOnce() -> Result<(), Error> + Send + 'static) {

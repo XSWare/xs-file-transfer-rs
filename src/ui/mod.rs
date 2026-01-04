@@ -2,10 +2,13 @@ mod connection_view;
 mod receive_view;
 mod send_view;
 
+use std::sync::Arc;
+
 use eframe::egui;
 
 use crate::{
     Controls,
+    error_log::ErrorLog,
     ui::{connection_view::ConnectionView, receive_view::ReceiveView, send_view::SendView},
 };
 
@@ -21,6 +24,7 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
         Box::new(|_cc| {
             Ok(Box::new(MainWindow {
                 connection_view: ConnectionView::new(controls),
+                error_log: controls.error_log.clone(),
             }))
         }),
     )
@@ -28,10 +32,17 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
 
 struct MainWindow {
     connection_view: ConnectionView,
+    error_log: Arc<ErrorLog>,
 }
 
 impl eframe::App for MainWindow {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let maybe_error = self.error_log.last_error();
+        if let Some(error) = maybe_error {
+            egui::TopBottomPanel::bottom("error_output").show(ctx, |ui| {
+                ui.label(error);
+            });
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical(|ui| {
                 ui.add(&mut self.connection_view);

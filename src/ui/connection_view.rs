@@ -2,19 +2,17 @@ use std::sync::Arc;
 
 use egui::Widget;
 
-use crate::{Controls, connection_control::ConnectionControl, error_log::ErrorLog};
+use crate::{Controls, connection_control::ConnectionControl};
 
 #[derive(Clone)]
 pub struct ConnectionView {
     connection_control: Arc<ConnectionControl>,
-    error_log: Arc<ErrorLog>,
 }
 
 impl ConnectionView {
     pub fn new(controls: &Controls) -> Self {
         Self {
             connection_control: controls.connection_control.clone(),
-            error_log: controls.error_log.clone(),
         }
     }
 
@@ -52,16 +50,12 @@ impl Widget for &mut ConnectionView {
                     let connect_button_response = ui.button(self.connect_button_label());
 
                     if connect_button_response.clicked() {
-                        let res = if self.is_connected() {
-                            self.connection_control.disconnect()
+                        if self.is_connected() {
+                            self.connection_control.disconnect();
                         } else {
                             self.connection_control
-                                .connect("127.0.0.1:3648".parse().unwrap())
-                        };
-
-                        if let Err(error) = res {
-                            self.error_log.log(error.to_string());
-                        };
+                                .connect("127.0.0.1:3648".parse().unwrap());
+                        }
                     }
 
                     if self.is_connected() {
@@ -69,18 +63,12 @@ impl Widget for &mut ConnectionView {
                     } else {
                         let accept_button_response = ui.button("Accept");
                         if accept_button_response.clicked() {
-                            if let Err(error) = self.connection_control.accept() {
-                                self.error_log.log(error.to_string());
-                            }
+                            self.connection_control.accept();
                         }
                         label_response | connect_button_response | accept_button_response
                     }
                 })
                 .inner;
-
-            if let Some(error) = &self.error_log.last_error() {
-                ui.label(error);
-            };
 
             response
         })
