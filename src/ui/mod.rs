@@ -25,7 +25,7 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
             Ok(Box::new(MainWindow {
                 connection_view: ConnectionView::new(controls),
                 send_view: SendView::default(),
-                receive_view: ReceiveView::default(),
+                receive_view: ReceiveView::new(controls.connection_control.clone()),
                 error_log: controls.error_log.clone(),
             }))
         }),

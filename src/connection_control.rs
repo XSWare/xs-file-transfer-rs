@@ -84,6 +84,12 @@ impl ConnectionControl {
         });
     }
 
+    /// get the current connection. it might get replaced so always call this
+    /// to get the most recently established connection.
+    pub fn get_connection(&self) -> Arc<Mutex<Option<PacketConnection>>> {
+        self.connection.clone()
+    }
+
     pub fn disconnect(&self) {
         self.execute_logged(|| {
             let mut connection = self.connection.lock().unwrap();

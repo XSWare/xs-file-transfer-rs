@@ -16,7 +16,7 @@ pub struct FileTransmission;
 impl FileTransmission {
     /// send a file. `sub_path` can be the file name or a subdirectory with the filename.
     /// the subdirectoy is used to restore the same file hierarchy at the destination.
-    fn send_file(connection: &mut PacketConnection, directory: &str, sub_path: &str) {
+    pub fn send_file(connection: &mut PacketConnection, directory: &str, sub_path: &str) {
         let file_path = format!("{directory}{sub_path}");
         let mut file = File::open(file_path).unwrap();
         let mut file_content = Vec::new();
@@ -29,7 +29,7 @@ impl FileTransmission {
         connection.send(&data).unwrap();
     }
 
-    fn receive_file(connection: &mut PacketConnection, directory: &str) {
+    pub fn receive_file(connection: &mut PacketConnection, directory: &str) {
         let data = connection.receive().unwrap();
         let header: Header = *from_bytes(&data[..size_of::<Header>()]);
         let mut cursor = size_of::<Header>();
