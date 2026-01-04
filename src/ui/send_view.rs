@@ -56,6 +56,8 @@ impl SendView {
             self.error_log
                 .log(format!("sending file \"{}{}\"", directory, file_name));
             FileTransmission::send_file(connection, &directory, file_name);
+            self.error_log
+                .log(format!("sent file \"{}{}\"", directory, file_name));
         } else {
             self.error_log.log("failed to get connection".to_string());
         }
