@@ -23,8 +23,17 @@ pub enum Error {
     AlreadyDisconnected,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum ConnectionStatus {
+    Connected,
+    Disconnected,
+    Connecting,
+    Accepting,
+}
+
 pub struct ConnectionControl {
     connection: Arc<Mutex<Option<PacketConnection>>>,
+    status: Arc<Mutex<ConnectionStatus>>,
     receive_buffer_size: usize,
     port: u16,
     error_log: Arc<ErrorLog>,
@@ -34,6 +43,7 @@ impl ConnectionControl {
     pub fn new(error_log: Arc<ErrorLog>) -> Self {
         Self {
             connection: Default::default(),
+            status: Arc::new(Mutex::new(ConnectionStatus::Disconnected)),
             receive_buffer_size: 1024,
             port: 3648,
             error_log,
@@ -41,22 +51,22 @@ impl ConnectionControl {
     }
 
     pub fn connect(&self, addr: SocketAddr) {
-        if self.is_connected() {
+        if !self.is_disconnected() {
             self.error_log.log(Error::AlreadyConnected.to_string());
             return;
         }
 
-        let cloned_connection = self.connection.clone();
+        self.set_status(ConnectionStatus::Connecting);
+
+        let connection = self.connection.clone();
+        let status = self.status.clone();
         let receive_buffer_size = self.receive_buffer_size;
 
-        self.execute_async(move || {
+        self.execute_connect_routine_async(move || {
             let stream = TcpStream::connect(addr)?;
             let packet_connection = PacketConnection::new(stream, receive_buffer_size);
-            let mut connection = cloned_connection.lock().unwrap();
-            if connection.is_some() {
-                return Err(Error::AlreadyConnected);
-            }
-            *connection = Some(packet_connection);
+            *connection.lock().unwrap() = Some(packet_connection);
+            set_status(&status, ConnectionStatus::Connected);
             Ok(())
         });
     }
@@ -67,19 +77,19 @@ impl ConnectionControl {
             return;
         }
 
+        self.set_status(ConnectionStatus::Accepting);
+
         let cloned_connection = self.connection.clone();
+        let status = self.status.clone();
         let port = self.port;
         let receive_buffer_size = self.receive_buffer_size;
 
-        self.execute_async(move || {
+        self.execute_connect_routine_async(move || {
             let listener = TcpListener::bind(format!("0.0.0.0:{}", port))?;
             let (stream, _) = listener.accept()?;
             let packet_connection = PacketConnection::new(stream, receive_buffer_size);
-            let mut connection = cloned_connection.lock().unwrap();
-            if connection.is_some() {
-                return Err(Error::AlreadyConnected);
-            }
-            *connection = Some(packet_connection);
+            *cloned_connection.lock().unwrap() = Some(packet_connection);
+            set_status(&status, ConnectionStatus::Connected);
             Ok(())
         });
     }
@@ -90,12 +100,25 @@ impl ConnectionControl {
         self.connection.clone()
     }
 
+    pub fn get_status(&self) -> ConnectionStatus {
+        get_status(&self.status)
+    }
+
+    fn set_status(&self, new_status: ConnectionStatus) {
+        set_status(&self.status, new_status);
+    }
+
     pub fn disconnect(&self) {
         self.execute_logged(|| {
+            if self.is_disconnected() {
+                return Err(Error::AlreadyDisconnected);
+            }
+
             let mut connection = self.connection.lock().unwrap();
             if let Some(packet_connection) = connection.as_ref() {
                 packet_connection.shutdown(std::net::Shutdown::Both)?;
                 *connection = None;
+                self.set_status(ConnectionStatus::Disconnected);
                 Ok(())
             } else {
                 Err(Error::AlreadyDisconnected)
@@ -104,7 +127,11 @@ impl ConnectionControl {
     }
 
     pub fn is_connected(&self) -> bool {
-        self.connection.lock().unwrap().is_some()
+        self.get_status() == ConnectionStatus::Connected
+    }
+
+    pub fn is_disconnected(&self) -> bool {
+        self.get_status() == ConnectionStatus::Disconnected
     }
 
     fn execute_logged(&self, f: impl FnOnce() -> Result<(), Error>) {
@@ -114,13 +141,27 @@ impl ConnectionControl {
         }
     }
 
-    fn execute_async(&self, f: impl FnOnce() -> Result<(), Error> + Send + 'static) {
+    /// executes a connect routine in a separate thread and sets status and error log accordingly
+    fn execute_connect_routine_async(
+        &self,
+        f: impl FnOnce() -> Result<(), Error> + Send + 'static,
+    ) {
+        let status = self.status.clone();
         let error_log = self.error_log.clone();
         thread::spawn(move || {
             let res = f();
             if let Err(error) = res {
+                set_status(&status, ConnectionStatus::Disconnected);
                 error_log.log(error.to_string());
             }
         });
     }
+}
+
+fn get_status(status: &Arc<Mutex<ConnectionStatus>>) -> ConnectionStatus {
+    *status.lock().unwrap()
+}
+
+fn set_status(status: &Arc<Mutex<ConnectionStatus>>, new_status: ConnectionStatus) {
+    *status.lock().unwrap() = new_status
 }

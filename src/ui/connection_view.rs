@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
-use egui::Widget;
+use egui::{Response, Widget};
 
-use crate::{Controls, connection_control::ConnectionControl};
+use crate::{
+    Controls,
+    connection_control::{ConnectionControl, ConnectionStatus},
+};
 
 #[derive(Clone)]
 pub struct ConnectionView {
@@ -16,24 +19,30 @@ impl ConnectionView {
         }
     }
 
-    fn is_connected(&self) -> bool {
-        self.connection_control.is_connected()
+    fn get_status(&self) -> ConnectionStatus {
+        self.connection_control.get_status()
     }
 
-    pub fn connection_status_as_string(&self) -> &str {
-        if self.is_connected() {
-            "Connected"
-        } else {
-            "Disconnected"
+    fn connection_status_as_str(&self) -> &'static str {
+        match self.get_status() {
+            ConnectionStatus::Connected => "Connected",
+            ConnectionStatus::Disconnected => "Disconnected",
+            ConnectionStatus::Connecting => "Connecting",
+            ConnectionStatus::Accepting => "Waiting for remote to connect",
         }
     }
 
-    pub fn connect_button_label(&self) -> &str {
-        if self.is_connected() {
-            "Disconnect"
-        } else {
-            "Connect"
-        }
+    fn on_connect_button_clicked(&self) {
+        self.connection_control
+            .connect("127.0.0.1:3648".parse().unwrap());
+    }
+
+    fn on_accept_button_clicked(&self) {
+        self.connection_control.accept();
+    }
+
+    fn on_disconnect_button_clicked(&self) {
+        self.connection_control.disconnect();
     }
 }
 
@@ -43,35 +52,64 @@ impl Widget for &mut ConnectionView {
             ui.heading("Connection");
             let response = ui
                 .horizontal(|ui| {
-                    let label_response = ui.label(format!(
+                    let response = ui.label(format!(
                         "Connection status: {}",
-                        self.connection_status_as_string()
+                        self.connection_status_as_str()
                     ));
-                    let connect_button_response = ui.button(self.connect_button_label());
 
-                    if connect_button_response.clicked() {
-                        if self.is_connected() {
-                            self.connection_control.disconnect();
-                        } else {
-                            self.connection_control
-                                .connect("127.0.0.1:3648".parse().unwrap());
-                        }
-                    }
+                    let response = add_conditional_widget(
+                        self.get_status() == ConnectionStatus::Disconnected,
+                        response,
+                        || {
+                            let response = ui.button("Connect");
+                            if response.clicked() {
+                                self.on_connect_button_clicked();
+                            }
+                            response
+                        },
+                    );
 
-                    if self.is_connected() {
-                        label_response | connect_button_response
-                    } else {
-                        let accept_button_response = ui.button("Accept");
-                        if accept_button_response.clicked() {
-                            self.connection_control.accept();
-                        }
-                        label_response | connect_button_response | accept_button_response
-                    }
+                    let response = add_conditional_widget(
+                        self.get_status() == ConnectionStatus::Disconnected,
+                        response,
+                        || {
+                            let response = ui.button("Accept");
+                            if response.clicked() {
+                                self.on_accept_button_clicked();
+                            }
+                            response
+                        },
+                    );
+
+                    add_conditional_widget(
+                        self.get_status() == ConnectionStatus::Connected,
+                        response,
+                        || {
+                            let response = ui.button("Disconnect");
+                            if response.clicked() {
+                                self.on_disconnect_button_clicked();
+                            }
+                            response
+                        },
+                    )
                 })
                 .inner;
 
             response
         })
         .inner
+    }
+}
+
+/// add a widget only if the condition is true and combine their responses
+fn add_conditional_widget(
+    condition: bool,
+    current_response: Response,
+    add_widget: impl FnOnce() -> Response,
+) -> Response {
+    if condition {
+        current_response | add_widget()
+    } else {
+        current_response
     }
 }
