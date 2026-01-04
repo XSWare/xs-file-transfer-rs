@@ -37,7 +37,7 @@ impl FileTransmission {
             str::from_utf8(&data[cursor..cursor + header.sub_path_length()]).unwrap();
         cursor += header.sub_path_length();
         let file_content = &data[cursor..cursor + header.file_content_length()];
-        let file_path = format!("{directory}{sub_path}");
+        let file_path = format!("{directory}\\{sub_path}");
         if let Some(sub_directory) = Path::new(&file_path).parent() {
             create_dir_all(sub_directory).unwrap();
         };
