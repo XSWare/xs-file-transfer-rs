@@ -2,19 +2,19 @@ use std::sync::Arc;
 
 use egui::Widget;
 
-use crate::connection_control::ConnectionControl;
+use crate::{Controls, connection_control::ConnectionControl, error_log::ErrorLog};
 
 #[derive(Clone)]
 pub struct ConnectionView {
     connection_control: Arc<ConnectionControl>,
-    last_error: Option<String>,
+    error_log: Arc<ErrorLog>,
 }
 
 impl ConnectionView {
-    pub fn new(connection_control: Arc<ConnectionControl>) -> Self {
+    pub fn new(controls: &Controls) -> Self {
         Self {
-            connection_control,
-            last_error: None,
+            connection_control: controls.connection_control.clone(),
+            error_log: controls.error_log.clone(),
         }
     }
 
@@ -59,7 +59,7 @@ impl Widget for &mut ConnectionView {
                         };
 
                         if let Err(error) = res {
-                            self.last_error = Some(error.to_string());
+                            self.error_log.log(error.to_string());
                         };
                     }
 
@@ -69,7 +69,7 @@ impl Widget for &mut ConnectionView {
                         let accept_button_response = ui.button("Accept");
                         if accept_button_response.clicked() {
                             if let Err(error) = self.connection_control.accept() {
-                                self.last_error = Some(error.to_string())
+                                self.error_log.log(error.to_string());
                             }
                         }
                         label_response | connect_button_response | accept_button_response
@@ -77,7 +77,7 @@ impl Widget for &mut ConnectionView {
                 })
                 .inner;
 
-            if let Some(error) = &self.last_error {
+            if let Some(error) = &self.error_log.last_error() {
                 ui.label(error);
             };
 

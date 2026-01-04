@@ -1,12 +1,10 @@
 mod connection_view;
 
-use std::sync::Arc;
-
 use eframe::egui;
 
 use crate::{Controls, ui::connection_view::ConnectionView};
 
-pub fn show(controls: Controls) -> Result<(), eframe::Error> {
+pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default(),
@@ -17,7 +15,7 @@ pub fn show(controls: Controls) -> Result<(), eframe::Error> {
         options,
         Box::new(|_cc| {
             Ok(Box::new(MainWindow {
-                connection_view: ConnectionView::new(Arc::new(controls.connection_control)),
+                connection_view: ConnectionView::new(controls),
             }))
         }),
     )

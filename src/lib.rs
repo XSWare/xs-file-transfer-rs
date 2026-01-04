@@ -2,6 +2,7 @@
 
 mod command_resolver;
 mod connection_control;
+mod error_log;
 mod header;
 mod ui;
 
@@ -9,6 +10,7 @@ use std::fs::{File, create_dir_all};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
+use std::sync::Arc;
 
 use bytemuck::{bytes_of, from_bytes};
 use xs_rust_library::connection::Connection;
@@ -16,17 +18,21 @@ use xs_rust_library::network::packet_connection::PacketConnection;
 
 use crate::command_resolver::CommandResolver;
 use crate::connection_control::ConnectionControl;
+use crate::error_log::ErrorLog;
 use crate::header::Header;
 
-struct Controls {
-    connection_control: ConnectionControl,
+pub struct Controls {
+    connection_control: Arc<ConnectionControl>,
+    error_log: Arc<ErrorLog>,
 }
 
 pub fn run() {
+    let error_log = Arc::new(ErrorLog::default());
     let controls = Controls {
-        connection_control: ConnectionControl::default(),
+        connection_control: Arc::new(ConnectionControl::new(error_log.clone())),
+        error_log,
     };
-    ui::show(controls).unwrap();
+    ui::show(&controls).unwrap();
     // let mut command_resolver = CommandResolver::new();
     // match command_resolver.read_next_command().unwrap() {
     //     command_resolver::Command::Send(args) => {
