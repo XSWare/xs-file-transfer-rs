@@ -19,7 +19,7 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
         ..Default::default()
     };
     eframe::run_native(
-        "xs file transfer",
+        "xsFileTransfer",
         options,
         Box::new(|_cc| {
             Ok(Box::new(MainWindow {
