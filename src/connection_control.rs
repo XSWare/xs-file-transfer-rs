@@ -35,7 +35,6 @@ pub struct ConnectionControl {
     connection: Arc<Mutex<Option<PacketConnection>>>,
     status: Arc<Mutex<ConnectionStatus>>,
     receive_buffer_size: usize,
-    port: u16,
     error_log: Arc<ErrorLog>,
 }
 
@@ -45,7 +44,6 @@ impl ConnectionControl {
             connection: Default::default(),
             status: Arc::new(Mutex::new(ConnectionStatus::Disconnected)),
             receive_buffer_size: 1024,
-            port: 3648,
             error_log,
         }
     }
@@ -71,7 +69,7 @@ impl ConnectionControl {
         });
     }
 
-    pub fn accept(&self) {
+    pub fn accept(&self, port: String) {
         if self.is_connected() {
             self.error_log.log(Error::AlreadyConnected.to_string());
             return;
@@ -81,7 +79,6 @@ impl ConnectionControl {
 
         let cloned_connection = self.connection.clone();
         let status = self.status.clone();
-        let port = self.port;
         let receive_buffer_size = self.receive_buffer_size;
 
         self.execute_connect_routine_async(move || {

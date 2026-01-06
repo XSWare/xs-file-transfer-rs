@@ -13,6 +13,7 @@ pub struct ConnectionView {
     connection_control: Arc<ConnectionControl>,
     error_log: Arc<ErrorLog>,
     remote_address: String,
+    accept_port: String,
 }
 
 impl ConnectionView {
@@ -25,6 +26,7 @@ impl ConnectionView {
             } else {
                 String::new()
             },
+            accept_port: "3648".to_string(),
         }
     }
 
@@ -49,7 +51,7 @@ impl ConnectionView {
     }
 
     fn on_accept_button_clicked(&self) {
-        self.connection_control.accept();
+        self.connection_control.accept(self.accept_port.clone());
     }
 
     fn on_disconnect_button_clicked(&self) {
@@ -66,12 +68,12 @@ impl Widget for &mut ConnectionView {
                 self.connection_status_as_str()
             ));
 
-            let response = ui
-                .horizontal(|ui| {
-                    let response = add_conditional_widget(
-                        self.get_status() == ConnectionStatus::Disconnected,
-                        status_label_response,
-                        || {
+            let connect_management_response = add_conditional_widget(
+                self.get_status() == ConnectionStatus::Disconnected,
+                status_label_response,
+                || {
+                    let connect_response = ui
+                        .horizontal(|ui| {
                             let address_label_response = ui.label("Remote address: ");
 
                             let address_edit_response =
@@ -81,32 +83,40 @@ impl Widget for &mut ConnectionView {
                             if connect_response.clicked() {
                                 self.on_connect_button_clicked();
                             }
+                            address_label_response | address_edit_response | connect_response
+                        })
+                        .inner;
+
+                    let accept_response = ui
+                        .horizontal(|ui| {
+                            let port_label_response = ui.label("Port: ");
+
+                            let port_edit_response = ui.text_edit_singleline(&mut self.accept_port);
+
                             let accept_response = ui.button("Accept");
                             if accept_response.clicked() {
                                 self.on_accept_button_clicked();
                             }
-                            address_label_response
-                                | address_edit_response
-                                | connect_response
-                                | accept_response
-                        },
-                    );
+                            port_label_response | port_edit_response | accept_response
+                        })
+                        .inner;
 
-                    add_conditional_widget(
-                        self.get_status() == ConnectionStatus::Connected,
-                        response,
-                        || {
-                            let response = ui.button("Disconnect");
-                            if response.clicked() {
-                                self.on_disconnect_button_clicked();
-                            }
-                            response
-                        },
-                    )
-                })
-                .inner;
+                    connect_response | accept_response
+                },
+            );
 
-            response
+            let disconnect_response = add_conditional_widget(
+                self.get_status() == ConnectionStatus::Connected,
+                connect_management_response,
+                || {
+                    let response = ui.button("Disconnect");
+                    if response.clicked() {
+                        self.on_disconnect_button_clicked();
+                    }
+                    response
+                },
+            );
+            disconnect_response
         })
         .inner
     }
