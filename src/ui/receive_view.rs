@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc, thread};
+use std::{sync::Arc, thread};
 
 use egui::Widget;
 
@@ -28,16 +28,13 @@ impl ReceiveView {
         let error_log = self.error_log.clone();
 
         thread::spawn(move || {
-            let dir = Path::new(&receive_directory_path);
-            if !dir.exists() {
-                error_log.log("receive directory does not exist".to_string());
-                return;
-            }
-
-            if let Some(connection) = connection_control.get_connection().lock().unwrap().as_mut() {
-                error_log.log("waiting to receive file...".to_string());
-                FileTransmission::receive_file(connection, &receive_directory_path);
-                error_log.log("received file.".to_string());
+            error_log.log("waiting to receive file...".to_string());
+            match FileTransmission::receive_file(
+                connection_control.get_connection(),
+                &receive_directory_path,
+            ) {
+                Ok(_) => error_log.log("received file.".to_string()),
+                Err(error) => error_log.log(error.to_string()),
             }
         });
     }

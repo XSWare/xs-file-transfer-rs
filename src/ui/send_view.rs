@@ -16,8 +16,11 @@ pub struct SendView {
 impl SendView {
     pub fn new(controls: &Controls) -> Self {
         Self {
-            file_or_directory_path:
-                "D:\\Projects\\Rust\\XSRustyFileTransfer\\target\\debug\\test.txt".to_string(),
+            file_or_directory_path: if cfg!(debug_assertions) {
+                "D:\\Projects\\Rust\\XSRustyFileTransfer\\target\\debug\\test.txt".to_string()
+            } else {
+                String::new()
+            },
             connection_control: controls.connection_control.clone(),
             error_log: controls.error_log.clone(),
         }
@@ -46,20 +49,17 @@ impl SendView {
             return;
         };
 
-        if let Some(connection) = self
-            .connection_control
-            .get_connection()
-            .lock()
-            .unwrap()
-            .as_mut()
-        {
-            self.error_log
-                .log(format!("sending file \"{}{}\"", directory, file_name));
-            FileTransmission::send_file(connection, &directory, file_name);
-            self.error_log
-                .log(format!("sent file \"{}{}\"", directory, file_name));
-        } else {
-            self.error_log.log("failed to get connection".to_string());
+        self.error_log
+            .log(format!("sending file \"{}{}\"", directory, file_name));
+        match FileTransmission::send_file(
+            self.connection_control.get_connection(),
+            &directory,
+            file_name,
+        ) {
+            Ok(_) => self
+                .error_log
+                .log(format!("sent file \"{}{}\"", directory, file_name)),
+            Err(error) => self.error_log.log(error.to_string()),
         }
     }
 }
