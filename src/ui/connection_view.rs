@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::{Response, Widget};
+use egui::{Grid, Response, TextEdit, Ui, Widget};
 
 use crate::{
     Controls,
@@ -43,6 +43,51 @@ impl ConnectionView {
         }
     }
 
+    fn add_connection_management_widget(&mut self, ui: &mut Ui) -> Response {
+        Grid::new("connect_grid")
+            .show(ui, |ui| {
+                let connect_response = self.add_connect_widget(ui);
+                ui.end_row();
+                let accept_response = self.add_accept_widget(ui);
+                ui.end_row();
+
+                connect_response | accept_response
+            })
+            .inner
+    }
+
+    fn add_connect_widget(&mut self, ui: &mut Ui) -> Response {
+        let address_label_response = ui.label("Remote address: ");
+
+        let address_edit_response = ui.add_sized(
+            [140., ui.available_height()],
+            TextEdit::singleline(&mut self.remote_address),
+        );
+
+        let connect_response = ui.button("Connect");
+        if connect_response.clicked() {
+            self.on_connect_button_clicked();
+        }
+
+        address_label_response | address_edit_response | connect_response
+    }
+
+    fn add_accept_widget(&mut self, ui: &mut Ui) -> Response {
+        let port_label_response = ui.label("Port: ");
+
+        let port_edit_response = ui.add_sized(
+            [50., ui.available_height()],
+            TextEdit::singleline(&mut self.accept_port),
+        );
+
+        let accept_response = ui.button("Accept");
+        if accept_response.clicked() {
+            self.on_accept_button_clicked();
+        }
+
+        port_label_response | port_edit_response | accept_response
+    }
+
     fn on_connect_button_clicked(&self) {
         match self.remote_address.parse() {
             Ok(address) => self.connection_control.connect(address),
@@ -71,38 +116,7 @@ impl Widget for &mut ConnectionView {
             let connect_management_response = add_conditional_widget(
                 self.get_status() == ConnectionStatus::Disconnected,
                 status_label_response,
-                || {
-                    let connect_response = ui
-                        .horizontal(|ui| {
-                            let address_label_response = ui.label("Remote address: ");
-
-                            let address_edit_response =
-                                ui.text_edit_singleline(&mut self.remote_address);
-
-                            let connect_response = ui.button("Connect");
-                            if connect_response.clicked() {
-                                self.on_connect_button_clicked();
-                            }
-                            address_label_response | address_edit_response | connect_response
-                        })
-                        .inner;
-
-                    let accept_response = ui
-                        .horizontal(|ui| {
-                            let port_label_response = ui.label("Port: ");
-
-                            let port_edit_response = ui.text_edit_singleline(&mut self.accept_port);
-
-                            let accept_response = ui.button("Accept");
-                            if accept_response.clicked() {
-                                self.on_accept_button_clicked();
-                            }
-                            port_label_response | port_edit_response | accept_response
-                        })
-                        .inner;
-
-                    connect_response | accept_response
-                },
+                || self.add_connection_management_widget(ui),
             );
 
             let disconnect_response = add_conditional_widget(
