@@ -108,43 +108,25 @@ impl Widget for &mut ConnectionView {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         ui.vertical(|ui| {
             ui.heading("Connection");
-            let status_label_response = ui.label(format!(
+            let mut response = ui.label(format!(
                 "Connection status: {}",
                 self.connection_status_as_str()
             ));
 
-            let connect_management_response = add_conditional_widget(
-                self.get_status() == ConnectionStatus::Disconnected,
-                status_label_response,
-                || self.add_connection_management_widget(ui),
-            );
+            if self.get_status() == ConnectionStatus::Disconnected {
+                response |= self.add_connection_management_widget(ui);
+            }
 
-            let disconnect_response = add_conditional_widget(
-                self.get_status() == ConnectionStatus::Connected,
-                connect_management_response,
-                || {
-                    let response = ui.button("Disconnect");
-                    if response.clicked() {
-                        self.on_disconnect_button_clicked();
-                    }
-                    response
-                },
-            );
-            disconnect_response
+            if self.get_status() == ConnectionStatus::Disconnected {
+                let disconnect_button_response = ui.button("Disconnect");
+                if disconnect_button_response.clicked() {
+                    self.on_disconnect_button_clicked();
+                }
+                response |= disconnect_button_response
+            }
+
+            response
         })
         .inner
-    }
-}
-
-/// add a widget only if the condition is true and combine their responses
-fn add_conditional_widget(
-    condition: bool,
-    current_response: Response,
-    add_widget: impl FnOnce() -> Response,
-) -> Response {
-    if condition {
-        current_response | add_widget()
-    } else {
-        current_response
     }
 }
