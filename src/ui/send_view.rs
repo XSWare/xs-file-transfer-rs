@@ -1,4 +1,7 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use egui::Widget;
 
@@ -28,39 +31,80 @@ impl SendView {
 
     fn send(&self) {
         let path = Path::new(&self.file_or_directory_path);
-        if !path.exists() || !path.is_file() {
-            self.error_log.log("file does not exist".to_string());
+        if !path.exists() {
+            self.error_log.log("file path does not exist".to_string());
             return;
         }
 
-        let Some(file_name) = path.file_name().and_then(|s| s.to_str()) else {
-            self.error_log
-                .log("unable to extract file name".to_string());
-            return;
+        let file_paths = match get_all_file_paths_in_directory(path) {
+            Ok(v) => v,
+            Err(error) => {
+                self.error_log.log(error.to_string());
+                return;
+            }
         };
 
-        let Some(directory) = path
-            .parent()
-            .and_then(|parent| parent.to_str())
-            .map(|dir| format!("{}\\", dir))
-        else {
-            self.error_log
-                .log("unable to extract directory".to_string());
-            return;
-        };
+        let parent_dir = path.parent().unwrap();
 
-        self.error_log
-            .log(format!("sending file \"{}{}\"", directory, file_name));
-        match FileTransmission::send_file(
-            self.connection_control.get_connection(),
-            &directory,
-            file_name,
-        ) {
-            Ok(_) => self
-                .error_log
-                .log(format!("sent file \"{}{}\"", directory, file_name)),
-            Err(error) => self.error_log.log(error.to_string()),
+        for file_path in file_paths {
+            if !file_path.starts_with(parent_dir) {
+                self.error_log.log(format!(
+                    "file path \"{:?}\" does not contain passed path \"{:?}\"",
+                    file_path, parent_dir
+                ));
+                return;
+            }
+
+            let sub_path = file_path.strip_prefix(parent_dir).unwrap();
+
+            let directory = if path.is_file() {
+                match file_path.parent() {
+                    Some(v) => v,
+                    None => {
+                        self.error_log
+                            .log("unable to extract directory".to_string());
+                        return;
+                    }
+                }
+            } else {
+                parent_dir
+            };
+
+            self.error_log.log(format!(
+                "sending file {:?}",
+                Path::join(directory, sub_path)
+            ));
+            match FileTransmission::send_file(
+                self.connection_control.get_connection(),
+                &directory,
+                sub_path,
+            ) {
+                Ok(_) => self
+                    .error_log
+                    .log(format!("sent file {:?}", Path::join(directory, sub_path))),
+                Err(error) => self.error_log.log(error.to_string()),
+            }
         }
+    }
+}
+
+fn get_all_file_paths_in_directory(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
+    if dir.is_dir() {
+        let mut paths = Vec::new();
+
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                paths.extend_from_slice(&get_all_file_paths_in_directory(&path)?);
+            } else {
+                paths.push(path);
+            }
+        }
+
+        Ok(paths)
+    } else {
+        Ok(vec![dir.to_path_buf()])
     }
 }
 

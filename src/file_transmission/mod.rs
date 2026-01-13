@@ -27,6 +27,8 @@ pub enum Error {
     NoConnection,
     /// Error during transmission: {0}
     Transmission(#[from] packet_connection::Error),
+    /// File name not in a recognized format
+    FilenameDecoding,
 }
 
 pub struct FileTransmission;
@@ -36,17 +38,18 @@ impl FileTransmission {
     /// the subdirectoy is used to restore the same file hierarchy at the destination.
     pub fn send_file(
         connection: Arc<Mutex<Option<PacketConnection>>>,
-        directory: &str,
-        sub_path: &str,
+        directory: &Path,
+        sub_path: &Path,
     ) -> Result<(), Error> {
-        let file_path = format!("{directory}{sub_path}");
+        let file_path = directory.join(sub_path);
         let mut file = File::open(file_path)?;
         let mut file_content = Vec::new();
         file.read_to_end(&mut file_content)?;
-        let header = Header::new(file_content.len(), sub_path.len());
+        let sub_path_as_string = sub_path.to_str().ok_or(Error::FilenameDecoding)?;
+        let header = Header::new(file_content.len(), sub_path_as_string.len());
         let mut data = Vec::with_capacity(size_of::<Header>() + file_content.len());
         data.extend_from_slice(bytes_of(&header));
-        data.extend_from_slice(sub_path.as_bytes());
+        data.extend_from_slice(sub_path_as_string.as_bytes());
         data.extend_from_slice(&file_content);
         connection
             .lock()
