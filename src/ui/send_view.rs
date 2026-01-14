@@ -4,10 +4,11 @@ use std::{
 };
 
 use egui::Widget;
+use xs_rust_library::connection::Connection;
 
 use crate::{
-    Controls, connection_control::ConnectionControl, error_log::ErrorLog,
-    file_transmission::FileTransmission,
+    Controls, error_log::ErrorLog, file_transmission::FileTransmission,
+    network::connection_control::ConnectionControl,
 };
 
 pub struct SendView {
@@ -20,7 +21,8 @@ impl SendView {
     pub fn new(controls: &Controls) -> Self {
         Self {
             file_or_directory_path: if cfg!(debug_assertions) {
-                "D:\\Projects\\Rust\\XSRustyFileTransfer\\target\\debug\\test.txt".to_string()
+                "C:\\Games\\World of Warcraft\\_classic_era_\\Interface\\AddOns\\Auctionator"
+                    .to_string()
             } else {
                 String::new()
             },
@@ -74,16 +76,26 @@ impl SendView {
                 "sending file {:?}",
                 Path::join(directory, sub_path)
             ));
-            match FileTransmission::send_file(
-                self.connection_control.get_connection(),
-                &directory,
-                sub_path,
-            ) {
-                Ok(_) => self
-                    .error_log
-                    .log(format!("sent file {:?}", Path::join(directory, sub_path))),
-                Err(error) => self.error_log.log(error.to_string()),
-            }
+            let packet_data =
+                match FileTransmission::create_packet_data_from_path(&directory, sub_path) {
+                    Ok(v) => v,
+                    Err(error) => {
+                        self.error_log.log(error.to_string());
+                        return;
+                    }
+                };
+
+            self.connection_control
+                .get_connection()
+                .lock()
+                .unwrap()
+                .as_mut()
+                .unwrap()
+                .send(&packet_data)
+                .unwrap();
+
+            self.error_log
+                .log(format!("sent file {:?}", Path::join(directory, sub_path)));
         }
     }
 }
@@ -118,7 +130,9 @@ impl Widget for &mut SendView {
             })
             .inner;
 
-        if !self.file_or_directory_path.is_empty() && self.connection_control.is_connected() {
+        if !self.file_or_directory_path.is_empty()
+        /*&& self.connection_control.is_connected()*/
+        {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
                 self.send();

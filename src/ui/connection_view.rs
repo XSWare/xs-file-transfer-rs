@@ -4,7 +4,7 @@ use egui::{Grid, Response, TextEdit, Ui, Widget};
 
 use crate::{
     Controls,
-    connection_control::{ConnectionControl, ConnectionStatus},
+    network::connection_control::{ConnectionControl, ConnectionStatus},
     error_log::ErrorLog,
 };
 

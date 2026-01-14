@@ -1,10 +1,11 @@
 use std::{sync::Arc, thread};
 
 use egui::Widget;
+use xs_rust_library::connection::Connection;
 
 use crate::{
-    Controls, connection_control::ConnectionControl, error_log::ErrorLog,
-    file_transmission::FileTransmission,
+    Controls, error_log::ErrorLog, file_transmission::FileTransmission,
+    network::connection_control::ConnectionControl,
 };
 
 pub struct ReceiveView {
@@ -28,13 +29,23 @@ impl ReceiveView {
         let error_log = self.error_log.clone();
 
         thread::spawn(move || {
-            error_log.log("waiting to receive file...".to_string());
-            match FileTransmission::receive_file(
-                connection_control.get_connection(),
-                &receive_directory_path,
-            ) {
-                Ok(_) => error_log.log("received file.".to_string()),
-                Err(error) => error_log.log(error.to_string()),
+            loop {
+                error_log.log("waiting to receive file...".to_string());
+                let packet_data = connection_control
+                    .get_connection()
+                    .lock()
+                    .unwrap()
+                    .as_mut()
+                    .unwrap()
+                    .receive()
+                    .unwrap();
+                match FileTransmission::write_file_from_packet_data(
+                    &packet_data,
+                    &receive_directory_path,
+                ) {
+                    Ok(_) => error_log.log("received file.".to_string()),
+                    Err(error) => error_log.log(error.to_string()),
+                }
             }
         });
     }
