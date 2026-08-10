@@ -1,15 +1,16 @@
-use std::{sync::Arc, thread};
+use std::{path::PathBuf, sync::Arc};
 
 use egui::Widget;
-use xs_rust_library::connection::Connection;
 
 use crate::{
-    Controls, error_log::ErrorLog, file_transmission::FileTransmission,
-    network::connection_control::ConnectionControl,
+    Controls,
+    error_log::ErrorLog,
+    network::{connection_control::ConnectionControl, receiver::Receiver},
 };
 
 pub struct ReceiveView {
-    receive_directory_path: String,
+    receive_directory_path: PathBuf,
+    receiver: Arc<Receiver>,
     connection_control: Arc<ConnectionControl>,
     error_log: Arc<ErrorLog>,
 }
@@ -19,44 +20,24 @@ impl ReceiveView {
         Self {
             receive_directory_path: get_default_directory(),
             connection_control: controls.connection_control.clone(),
+            receiver: controls.receiver.clone(),
             error_log: controls.error_log.clone(),
         }
     }
 
     fn receive(&self) {
-        let receive_directory_path = self.receive_directory_path.clone();
-        let connection_control = self.connection_control.clone();
-        let error_log = self.error_log.clone();
-
-        thread::spawn(move || {
-            loop {
-                error_log.log("waiting to receive file...".to_string());
-                let packet_data = connection_control
-                    .get_connection()
-                    .lock()
-                    .unwrap()
-                    .as_mut()
-                    .unwrap()
-                    .receive()
-                    .unwrap();
-                match FileTransmission::write_file_from_packet_data(
-                    &packet_data,
-                    &receive_directory_path,
-                ) {
-                    Ok(_) => error_log.log("received file.".to_string()),
-                    Err(error) => error_log.log(error.to_string()),
-                }
-            }
-        });
+        if let Err(error) = self.receiver.start_receiving(&self.receive_directory_path) {
+            self.error_log.log(error.to_string())
+        };
     }
 }
 
-fn get_default_directory() -> String {
+fn get_default_directory() -> PathBuf {
     directories::UserDirs::new()
         .and_then(|user_dir| {
             user_dir
                 .download_dir()
-                .and_then(|download_dir| download_dir.to_str().map(str::to_string))
+                .map(|download_dir| download_dir.to_path_buf())
         })
         .unwrap_or_default()
 }
@@ -67,11 +48,12 @@ impl Widget for &mut ReceiveView {
         let edit_response = ui
             .horizontal(|ui| {
                 ui.label("Receive directory: ");
-                ui.text_edit_singleline(&mut self.receive_directory_path)
+                ui.text_edit_singleline(&mut self.receive_directory_path.to_str().unwrap())
             })
             .inner;
 
-        if !self.receive_directory_path.is_empty() && self.connection_control.is_connected() {
+        if !self.receive_directory_path.iter().count() > 0 && self.connection_control.is_connected()
+        {
             let button_response = ui.button("Receive files");
             if button_response.clicked() {
                 self.receive();

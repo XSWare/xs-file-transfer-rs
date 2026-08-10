@@ -1,21 +1,16 @@
-mod header;
+pub mod header;
 
 use std::{
     fs::{File, create_dir_all},
     io::{Read, Write},
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    path::Path,
 };
 
 use bytemuck::{bytes_of, from_bytes};
 use displaydoc::Display;
 use thiserror::Error;
-use xs_rust_library::{
-    connection::Connection,
-    packet_connection::{self, PacketConnection},
-};
 
-use crate::file_transmission::header::Header;
+use header::Header;
 
 #[derive(Error, Display, Debug)]
 pub enum Error {
@@ -23,10 +18,6 @@ pub enum Error {
     FileIO(#[from] std::io::Error),
     /// Invalid file path: {0}
     InvalidFilePath(#[from] std::str::Utf8Error),
-    /// No connection available
-    NoConnection,
-    /// Error during transmission: {0}
-    Transmission(#[from] packet_connection::Error),
     /// File name not in a recognized format
     FilenameDecoding,
 }
@@ -53,14 +44,15 @@ impl FileTransmission {
         Ok(data)
     }
 
-    pub fn write_file_from_packet_data(packet_data: &[u8], directory: &str) -> Result<(), Error> {
+    pub fn write_file_from_packet_data(packet_data: &[u8], directory: &Path) -> Result<(), Error> {
         let header: Header = *from_bytes(&packet_data[..size_of::<Header>()]);
         let mut cursor = size_of::<Header>();
-        let sub_path: &str =
-            str::from_utf8(&packet_data[cursor..cursor + header.sub_path_length()])?;
+        let sub_path = Path::new(str::from_utf8(
+            &packet_data[cursor..cursor + header.sub_path_length()],
+        )?);
         cursor += header.sub_path_length();
         let file_content = &packet_data[cursor..cursor + header.file_content_length()];
-        let file_path = PathBuf::from(directory).join(sub_path);
+        let file_path = Path::join(directory, sub_path);
         if let Some(sub_directory) = file_path.parent() {
             create_dir_all(sub_directory)?;
         };

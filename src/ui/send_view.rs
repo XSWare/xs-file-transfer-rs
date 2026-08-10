@@ -7,8 +7,9 @@ use egui::Widget;
 use xs_rust_library::connection::Connection;
 
 use crate::{
-    Controls, error_log::ErrorLog, file_transmission::FileTransmission,
-    network::connection_control::ConnectionControl,
+    Controls,
+    error_log::ErrorLog,
+    network::{connection_control::ConnectionControl, file_transmission::FileTransmission},
 };
 
 pub struct SendView {
