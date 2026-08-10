@@ -53,6 +53,7 @@ impl Receiver {
             _ => return Err(Error::AlreadyReceiving),
         }
 
+        self.error_log.log("waiting to receive file...".to_string());
         let stop = self.stop.clone();
         let connection_control = self.connection_control.clone();
         let error_log = self.error_log.clone();
@@ -66,10 +67,12 @@ impl Receiver {
                     return;
                 };
 
-                error_log.log("waiting to receive file...".to_string());
                 let packet_data = connection.receive().unwrap();
                 match FileTransmission::write_file_from_packet_data(&packet_data, &receive_dir) {
-                    Ok(_) => error_log.log("received file".to_string()),
+                    Ok(file_path) => error_log.log(format!(
+                        "received file: \"{}\"",
+                        file_path.to_str().unwrap()
+                    )),
                     Err(error) => {
                         error_log.log(format!("error during receive: {}", error));
                         return;
