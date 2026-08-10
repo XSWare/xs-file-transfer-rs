@@ -3,7 +3,7 @@ mod header;
 use std::{
     fs::{File, create_dir_all},
     io::{Read, Write},
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
 
@@ -60,8 +60,8 @@ impl FileTransmission {
             str::from_utf8(&packet_data[cursor..cursor + header.sub_path_length()])?;
         cursor += header.sub_path_length();
         let file_content = &packet_data[cursor..cursor + header.file_content_length()];
-        let file_path = format!("{directory}\\{sub_path}");
-        if let Some(sub_directory) = Path::new(&file_path).parent() {
+        let file_path = PathBuf::from(directory).join(sub_path);
+        if let Some(sub_directory) = file_path.parent() {
             create_dir_all(sub_directory)?;
         };
         let mut file = File::create(file_path)?;
