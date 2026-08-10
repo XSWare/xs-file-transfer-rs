@@ -8,10 +8,8 @@
             "name": "Debug executable",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}\\target\\debug\\xs_rusty_file_transfer.exe",
-            "args": [
-                "--single-step",
-            ],
+            "program": "${workspaceFolder}\\target\\debug\\xs-file-transfer-rs.exe",
+            "args": [],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "preLaunchTask": "rust: cargo build"
