@@ -7,7 +7,13 @@ use std::{
 use displaydoc::Display;
 use thiserror::Error;
 
-use xs_rust_library::packet_connection::{self, PacketConnection};
+use xs_rust_library::{
+    connection::Connection as ConnectionInterface,
+    encrypted_connection::{self, EncryptedConnection, HandshakeError},
+    encryption::aes256_crypto::Aes256Crypto,
+    key_exchange::{HandshakeMode, curve25519::Curve25519},
+    packet_connection::PacketConnection,
+};
 
 use crate::error_log::ErrorLog;
 
@@ -16,7 +22,9 @@ pub enum Error {
     /// IO error: {0}
     IO(#[from] std::io::Error),
     /// Connection error: {0}
-    Connection(#[from] packet_connection::Error),
+    Connection(#[from] encrypted_connection::TransmissionError),
+    /// Handshake error: {0}
+    HandshakeError(#[from] HandshakeError),
     /// Could not connect since connection is already established.
     AlreadyConnected,
     /// Could not disconnect since no connection is established.
@@ -31,8 +39,10 @@ pub enum ConnectionStatus {
     Accepting,
 }
 
+pub type Connection = EncryptedConnection<Aes256Crypto, PacketConnection>;
+
 pub struct ConnectionControl {
-    connection: Arc<Mutex<Option<PacketConnection>>>,
+    connection: Arc<Mutex<Option<Connection>>>,
     status: Arc<Mutex<ConnectionStatus>>,
     receive_buffer_size: usize,
     error_log: Arc<ErrorLog>,
@@ -63,7 +73,12 @@ impl ConnectionControl {
         self.execute_connect_routine_async(move || {
             let stream = TcpStream::connect(addr)?;
             let packet_connection = PacketConnection::new(stream, receive_buffer_size);
-            *connection.lock().unwrap() = Some(packet_connection);
+            let encrypted_connection = EncryptedConnection::with_handshake(
+                packet_connection,
+                Curve25519,
+                HandshakeMode::Client,
+            )?;
+            *connection.lock().unwrap() = Some(encrypted_connection);
             set_status(&status, ConnectionStatus::Connected);
             Ok(())
         });
@@ -85,7 +100,12 @@ impl ConnectionControl {
             let listener = TcpListener::bind(format!("0.0.0.0:{}", port))?;
             let (stream, _) = listener.accept()?;
             let packet_connection = PacketConnection::new(stream, receive_buffer_size);
-            *cloned_connection.lock().unwrap() = Some(packet_connection);
+            let encrypted_connection = EncryptedConnection::with_handshake(
+                packet_connection,
+                Curve25519,
+                HandshakeMode::Server,
+            )?;
+            *cloned_connection.lock().unwrap() = Some(encrypted_connection);
             set_status(&status, ConnectionStatus::Connected);
             Ok(())
         });
@@ -93,7 +113,7 @@ impl ConnectionControl {
 
     /// get the current connection. it might get replaced so always call this
     /// to get the most recently established connection.
-    pub fn get_connection(&self) -> Arc<Mutex<Option<PacketConnection>>> {
+    pub fn get_connection(&self) -> Arc<Mutex<Option<Connection>>> {
         self.connection.clone()
     }
 
@@ -112,8 +132,8 @@ impl ConnectionControl {
             }
 
             let mut connection = self.connection.lock().unwrap();
-            if let Some(packet_connection) = connection.as_ref() {
-                packet_connection.shutdown(std::net::Shutdown::Both)?;
+            if let Some(con) = connection.as_mut() {
+                con.shutdown(std::net::Shutdown::Both)?;
                 *connection = None;
                 self.set_status(ConnectionStatus::Disconnected);
                 Ok(())
@@ -129,10 +149,6 @@ impl ConnectionControl {
 
     pub fn is_disconnected(&self) -> bool {
         self.get_status() == ConnectionStatus::Disconnected
-    }
-
-    pub fn get_receive_buffer_size(&self) -> usize {
-        self.receive_buffer_size
     }
 
     fn execute_logged(&self, f: impl FnOnce() -> Result<(), Error>) {

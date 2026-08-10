@@ -9,7 +9,7 @@ use std::{
 
 use displaydoc::Display;
 use thiserror::Error;
-use xs_rust_library::{connection::Connection, packet_connection::PacketConnection};
+use xs_rust_library::{connection::Connection, encrypted_connection::TransmissionError};
 
 use crate::{
     error_log::ErrorLog,
@@ -20,8 +20,8 @@ use crate::{
 pub enum Error {
     /// Receive loop was already started
     AlreadyReceiving,
-    /// Tcp stream error: {0}
-    TcpStreamError(#[from] std::io::Error),
+    /// Unable to clone connection: {0}
+    ConnectionClone(#[from] TransmissionError),
     /// Unable to start receiving without an established connection
     NoConnection,
 }
@@ -60,17 +60,12 @@ impl Receiver {
         self.error_log.log("waiting to receive file...".to_string());
         let stop = self.stop.clone();
         let send_connection = self.connection_control.get_connection().clone();
-        let tcp_stream = send_connection
+        let mut connection = send_connection
             .lock()
             .unwrap()
             .as_mut()
             .ok_or(Error::NoConnection)?
-            .tcp_stream()
             .try_clone()?;
-        let mut connection = PacketConnection::new(
-            tcp_stream,
-            self.connection_control.get_receive_buffer_size(),
-        );
         let error_log = self.error_log.clone();
         let receive_dir = receive_dir.to_path_buf();
         let join_handle = thread::spawn(move || {
