@@ -131,6 +131,10 @@ impl ConnectionControl {
         self.get_status() == ConnectionStatus::Disconnected
     }
 
+    pub fn get_receive_buffer_size(&self) -> usize {
+        self.receive_buffer_size
+    }
+
     fn execute_logged(&self, f: impl FnOnce() -> Result<(), Error>) {
         let res = f();
         if let Err(error) = res {

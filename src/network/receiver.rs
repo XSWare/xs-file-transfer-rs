@@ -9,7 +9,7 @@ use std::{
 
 use displaydoc::Display;
 use thiserror::Error;
-use xs_rust_library::connection::Connection;
+use xs_rust_library::{connection::Connection, packet_connection::PacketConnection};
 
 use crate::{
     error_log::ErrorLog,
@@ -20,6 +20,10 @@ use crate::{
 pub enum Error {
     /// Receive loop was already started
     AlreadyReceiving,
+    /// Tcp stream error: {0}
+    TcpStreamError(#[from] std::io::Error),
+    /// Unable to start receiving without an established connection
+    NoConnection,
 }
 
 #[allow(unused)]
@@ -55,18 +59,22 @@ impl Receiver {
 
         self.error_log.log("waiting to receive file...".to_string());
         let stop = self.stop.clone();
-        let connection_control = self.connection_control.clone();
+        let send_connection = self.connection_control.get_connection().clone();
+        let tcp_stream = send_connection
+            .lock()
+            .unwrap()
+            .as_mut()
+            .ok_or(Error::NoConnection)?
+            .tcp_stream()
+            .try_clone()?;
+        let mut connection = PacketConnection::new(
+            tcp_stream,
+            self.connection_control.get_receive_buffer_size(),
+        );
         let error_log = self.error_log.clone();
         let receive_dir = receive_dir.to_path_buf();
         let join_handle = thread::spawn(move || {
             while !stop.load(Ordering::Relaxed) {
-                let connection_lock = connection_control.get_connection();
-                let mut connection_guard = connection_lock.lock().unwrap();
-                let Some(connection) = connection_guard.as_mut() else {
-                    error_log.log("unable to start receiving: no active connection.".to_string());
-                    return;
-                };
-
                 let packet_data = connection.receive().unwrap();
                 match FileTransmission::write_file_from_packet_data(&packet_data, &receive_dir) {
                     Ok(file_path) => error_log.log(format!(
