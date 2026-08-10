@@ -1,5 +1,5 @@
 [package]
-name = "xs_rusty_file_transfer"
+name = "xs-file-transfer-rs"
 version = "0.1.0"
 edition = "2024"
 

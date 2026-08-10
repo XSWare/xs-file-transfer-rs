@@ -1,3 +1,3 @@
 fn main() {
-    xs_rusty_file_transfer::run();
+    xs_file_transfer_rs::run();
 }
