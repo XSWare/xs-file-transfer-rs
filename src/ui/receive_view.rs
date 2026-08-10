@@ -52,15 +52,13 @@ impl ReceiveView {
 }
 
 fn get_default_directory() -> String {
-    if let Some(dir) = directories::UserDirs::new().and_then(|user_dir| {
-        user_dir
-            .download_dir()
-            .and_then(|download_dir| download_dir.to_str().map(str::to_string))
-    }) {
-        dir
-    } else {
-        String::new()
-    }
+    directories::UserDirs::new()
+        .and_then(|user_dir| {
+            user_dir
+                .download_dir()
+                .and_then(|download_dir| download_dir.to_str().map(str::to_string))
+        })
+        .unwrap_or_default()
 }
 
 impl Widget for &mut ReceiveView {

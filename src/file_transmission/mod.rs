@@ -21,7 +21,7 @@ use crate::file_transmission::header::Header;
 pub enum Error {
     /// File IO error: {0}
     FileIO(#[from] std::io::Error),
-    ///
+    /// Invalid file path: {0}
     InvalidFilePath(#[from] std::str::Utf8Error),
     /// No connection available
     NoConnection,

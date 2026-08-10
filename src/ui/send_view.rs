@@ -77,7 +77,7 @@ impl SendView {
                 Path::join(directory, sub_path)
             ));
             let packet_data =
-                match FileTransmission::create_packet_data_from_path(&directory, sub_path) {
+                match FileTransmission::create_packet_data_from_path(directory, sub_path) {
                     Ok(v) => v,
                     Err(error) => {
                         self.error_log.log(error.to_string());
