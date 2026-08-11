@@ -9,7 +9,10 @@ use std::{
 
 use displaydoc::Display;
 use thiserror::Error;
-use xs_rust_library::{connection::Connection, encrypted_connection::TransmissionError};
+use xs_rust_library::{
+    connection::Connection as ConnectionInterface, encrypted_connection::TransmissionError,
+    receive_loop::ReceiveLoop,
+};
 
 use crate::{
     error_log::ErrorLog,
@@ -46,7 +49,7 @@ impl Receiver {
             connection_control,
             error_log,
             status: Mutex::new(ReceiveLoopStatus::NotStarted),
-            stop: Arc::new(AtomicBool::new(false)),
+            stop: Arc::default(),
         }
     }
 
@@ -58,21 +61,20 @@ impl Receiver {
         }
 
         self.error_log.log("waiting to receive file...".to_string());
-        let stop = self.stop.clone();
         let send_connection = self.connection_control.get_connection().clone();
-        let mut connection = send_connection
+        let connection = send_connection
             .lock()
             .unwrap()
             .as_mut()
             .ok_or(Error::NoConnection)?
             .try_clone()?;
+
+        let mut event = ReceiveLoop::new(connection, self.stop.clone());
         let error_log = self.error_log.clone();
         let receive_dir = receive_dir.to_path_buf();
         let join_handle = thread::spawn(move || {
-            while !stop.load(Ordering::Relaxed) {
-                let mut buffer = Vec::new();
-                connection.receive_into(&mut buffer).unwrap();
-                match FileTransmission::write_file_from_packet_data(&buffer, &receive_dir) {
+            event.subscribe(Box::new(move |packet| {
+                match FileTransmission::write_file_from_packet_data(&packet, &receive_dir) {
                     Ok(file_path) => error_log.log(format!(
                         "received file: \"{}\"",
                         file_path.to_str().unwrap()
@@ -82,11 +84,16 @@ impl Receiver {
                         return;
                     }
                 }
-            }
+            }));
+            event.start();
         });
 
         *status = ReceiveLoopStatus::Receiving(join_handle);
 
         Ok(())
+    }
+
+    pub fn stop(&self) {
+        self.stop.store(true, Ordering::Relaxed);
     }
 }
