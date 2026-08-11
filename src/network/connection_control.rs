@@ -44,7 +44,6 @@ pub type Connection = EncryptedConnection<Aes256Crypto, PacketConnection>;
 pub struct ConnectionControl {
     connection: Arc<Mutex<Option<Connection>>>,
     status: Arc<Mutex<ConnectionStatus>>,
-    receive_buffer_size: usize,
     error_log: Arc<ErrorLog>,
 }
 
@@ -53,7 +52,6 @@ impl ConnectionControl {
         Self {
             connection: Default::default(),
             status: Arc::new(Mutex::new(ConnectionStatus::Disconnected)),
-            receive_buffer_size: 1024,
             error_log,
         }
     }
@@ -68,11 +66,10 @@ impl ConnectionControl {
 
         let connection = self.connection.clone();
         let status = self.status.clone();
-        let receive_buffer_size = self.receive_buffer_size;
 
         self.execute_connect_routine_async(move || {
             let stream = TcpStream::connect(addr)?;
-            let packet_connection = PacketConnection::new(stream, receive_buffer_size);
+            let packet_connection = PacketConnection::new(stream);
             let encrypted_connection = EncryptedConnection::with_handshake(
                 packet_connection,
                 Curve25519,
@@ -94,12 +91,11 @@ impl ConnectionControl {
 
         let cloned_connection = self.connection.clone();
         let status = self.status.clone();
-        let receive_buffer_size = self.receive_buffer_size;
 
         self.execute_connect_routine_async(move || {
             let listener = TcpListener::bind(format!("0.0.0.0:{}", port))?;
             let (stream, _) = listener.accept()?;
-            let packet_connection = PacketConnection::new(stream, receive_buffer_size);
+            let packet_connection = PacketConnection::new(stream);
             let encrypted_connection = EncryptedConnection::with_handshake(
                 packet_connection,
                 Curve25519,

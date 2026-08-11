@@ -70,8 +70,9 @@ impl Receiver {
         let receive_dir = receive_dir.to_path_buf();
         let join_handle = thread::spawn(move || {
             while !stop.load(Ordering::Relaxed) {
-                let packet_data = connection.receive().unwrap();
-                match FileTransmission::write_file_from_packet_data(&packet_data, &receive_dir) {
+                let mut buffer = Vec::new();
+                connection.receive_into(&mut buffer).unwrap();
+                match FileTransmission::write_file_from_packet_data(&buffer, &receive_dir) {
                     Ok(file_path) => error_log.log(format!(
                         "received file: \"{}\"",
                         file_path.to_str().unwrap()
