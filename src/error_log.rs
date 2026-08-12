@@ -1,17 +1,17 @@
 use std::sync::Mutex;
 
 pub struct ErrorLog {
-    last_error: Mutex<Option<String>>,
+    last_error: Mutex<Vec<String>>,
 }
 
 impl ErrorLog {
     pub fn log(&self, error: String) {
         let mut last_error = self.last_error.lock().unwrap();
-        *last_error = Some(error);
+        last_error.push(error);
     }
 
     pub fn last_error(&self) -> Option<String> {
-        self.last_error.lock().unwrap().clone()
+        self.last_error.lock().unwrap().last().cloned()
     }
 }
 
