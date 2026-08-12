@@ -128,9 +128,7 @@ impl Widget for &mut SendView {
             })
             .inner;
 
-        if !self.file_or_directory_path.is_empty()
-        /*&& self.connection_control.is_connected()*/
-        {
+        if !self.file_or_directory_path.is_empty() && self.connection_control.is_connected() {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
                 self.send();
