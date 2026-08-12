@@ -1,4 +1,7 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use egui::Widget;
 
@@ -9,7 +12,7 @@ use crate::{
 };
 
 pub struct ReceiveView {
-    receive_directory_path: PathBuf,
+    receive_directory_path: String,
     receiver: Arc<Receiver>,
     connection_control: Arc<ConnectionControl>,
     error_log: Arc<ErrorLog>,
@@ -18,7 +21,10 @@ pub struct ReceiveView {
 impl ReceiveView {
     pub fn new(controls: &Controls) -> Self {
         Self {
-            receive_directory_path: get_default_directory(),
+            receive_directory_path: get_default_directory()
+                .into_os_string()
+                .into_string()
+                .unwrap(),
             connection_control: controls.connection_control.clone(),
             receiver: controls.receiver.clone(),
             error_log: controls.error_log.clone(),
@@ -26,7 +32,10 @@ impl ReceiveView {
     }
 
     fn receive(&self) {
-        if let Err(error) = self.receiver.start_receiving(&self.receive_directory_path) {
+        if let Err(error) = self
+            .receiver
+            .start_receiving(Path::new(&self.receive_directory_path))
+        {
             self.error_log.log(error.to_string())
         };
     }
@@ -48,12 +57,11 @@ impl Widget for &mut ReceiveView {
         let edit_response = ui
             .horizontal(|ui| {
                 ui.label("Receive directory: ");
-                ui.text_edit_singleline(&mut self.receive_directory_path.to_str().unwrap())
+                ui.text_edit_singleline(&mut self.receive_directory_path)
             })
             .inner;
 
-        if !self.receive_directory_path.iter().count() > 0 && self.connection_control.is_connected()
-        {
+        if !self.receive_directory_path.is_empty() && self.connection_control.is_connected() {
             let button_response = ui.button("Receive files");
             if button_response.clicked() {
                 self.receive();
