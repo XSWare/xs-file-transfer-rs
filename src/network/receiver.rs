@@ -100,6 +100,7 @@ impl Receiver {
         }
     }
 
+    #[allow(unused)]
     pub fn stop(&self) {
         let mut receive_loop_guard = self.receive_loop.lock().unwrap();
         let Some(receive_loop) = &*receive_loop_guard else {
