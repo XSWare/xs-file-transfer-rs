@@ -1,15 +1,16 @@
 mod connection_view;
+mod error_view;
 mod receive_view;
 mod send_view;
-
-use std::sync::Arc;
 
 use eframe::egui;
 
 use crate::{
     Controls,
-    error_log::ErrorLog,
-    ui::{connection_view::ConnectionView, receive_view::ReceiveView, send_view::SendView},
+    ui::{
+        connection_view::ConnectionView, error_view::ErrorView, receive_view::ReceiveView,
+        send_view::SendView,
+    },
 };
 
 pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
@@ -26,7 +27,7 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
                 connection_view: ConnectionView::new(controls),
                 send_view: SendView::new(controls),
                 receive_view: ReceiveView::new(controls),
-                error_log: controls.error_log.clone(),
+                error_view: ErrorView::new(controls),
             }))
         }),
     )
@@ -36,7 +37,7 @@ struct MainWindow {
     connection_view: ConnectionView,
     send_view: SendView,
     receive_view: ReceiveView,
-    error_log: Arc<ErrorLog>,
+    error_view: ErrorView,
 }
 
 impl eframe::App for MainWindow {
@@ -48,48 +49,11 @@ impl eframe::App for MainWindow {
                 ui.add(&mut self.send_view);
                 ui.separator();
                 ui.add(&mut self.receive_view);
-                if !self.error_log.is_empty() {
-                    ui.separator();
-                    self.show_error_output(ui);
-                }
+
+                egui::TopBottomPanel::bottom("error_output").show(ctx, |ui| {
+                    ui.add(&mut self.error_view);
+                });
             });
         });
-    }
-}
-
-impl MainWindow {
-    fn show_error_output(&self, ui: &mut egui::Ui) {
-        let collapsed_id = ui.make_persistent_id("error_output_collapsing");
-        let is_open =
-            egui::containers::collapsing_header::CollapsingState::load(ui.ctx(), collapsed_id)
-                .is_some_and(|state| state.is_open());
-
-        let header_text = if is_open {
-            format!("Errors ({})", self.error_log.error_count())
-        } else {
-            // Show the most recent error while collapsed.
-            self.error_log.last_error().unwrap_or_default()
-        };
-
-        egui::CollapsingHeader::new(header_text)
-            .id_salt("error_output_collapsing")
-            .default_open(false)
-            .show(ui, |ui| {
-                // Fill all the leftover space in the central panel below the views.
-                ui.set_min_height(ui.available_height());
-                egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.set_min_width(ui.available_width());
-                        let mut first = true;
-                        for error in &self.error_log.all_errors() {
-                            if !first {
-                                ui.separator();
-                            }
-                            first = false;
-                            ui.label(error);
-                        }
-                    });
-            });
     }
 }
