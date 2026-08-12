@@ -21,12 +21,7 @@ pub struct SendView {
 impl SendView {
     pub fn new(controls: &Controls) -> Self {
         Self {
-            file_or_directory_path: if cfg!(debug_assertions) {
-                "C:\\Games\\World of Warcraft\\_classic_era_\\Interface\\AddOns\\Auctionator"
-                    .to_string()
-            } else {
-                String::new()
-            },
+            file_or_directory_path: String::new(),
             connection_control: controls.connection_control.clone(),
             error_log: controls.error_log.clone(),
         }
