@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::Widget;
+use egui::{Widget, collapsing_header::CollapsingState};
 
 use crate::{Controls, error_log::ErrorLog};
 
@@ -23,12 +23,18 @@ impl Widget for &mut ErrorView {
             return ui.response();
         }
 
-        let header_text = self.error_log.last_error().unwrap_or_default();
+        let id = ui.make_persistent_id("error view expander");
+        let state = CollapsingState::load_with_default_open(ui.ctx(), id.into(), false);
 
-        egui::CollapsingHeader::new(header_text)
-            .id_salt("error view expander")
-            .default_open(false)
-            .show(ui, |ui| {
+        let header_text = if state.is_open() {
+            "Logs".to_string()
+        } else {
+            self.error_log.last_error().unwrap_or_default()
+        };
+
+        state
+            .show_header(ui, |ui| ui.label(header_text))
+            .body(|ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     let mut first = true;
                     for error in &self.error_log.all_errors() {
@@ -40,6 +46,6 @@ impl Widget for &mut ErrorView {
                     }
                 });
             })
-            .header_response
+            .0
     }
 }
