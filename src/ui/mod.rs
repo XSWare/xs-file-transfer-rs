@@ -41,8 +41,8 @@ struct MainWindow {
 }
 
 impl eframe::App for MainWindow {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.vertical(|ui| {
                 ui.add(&mut self.connection_view);
                 ui.separator();
@@ -50,7 +50,7 @@ impl eframe::App for MainWindow {
                 ui.separator();
                 ui.add(&mut self.receive_view);
 
-                egui::TopBottomPanel::bottom("error_output").show(ctx, |ui| {
+                egui::Panel::bottom("error_output").show(ui, |ui| {
                     ui.add(&mut self.error_view);
                 });
             });
