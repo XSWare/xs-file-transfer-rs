@@ -4,8 +4,10 @@ use egui::{Grid, Response, TextEdit, Ui, Widget};
 
 use crate::{
     Controls,
-    network::connection_control::{ConnectionControl, ConnectionStatus},
     error_log::ErrorLog,
+    network::connection_control::{
+        ConnectionControl, ConnectionStatus, LAST_ACCEPTED_PORT, LAST_ENDPOINT_KEY,
+    },
 };
 
 #[derive(Clone)]
@@ -21,12 +23,14 @@ impl ConnectionView {
         Self {
             connection_control: controls.connection_control.clone(),
             error_log: controls.error_log.clone(),
-            remote_address: if cfg!(debug_assertions) {
-                "127.0.0.1:3648".to_string()
-            } else {
-                String::new()
-            },
-            accept_port: "3648".to_string(),
+            remote_address: controls
+                .settings
+                .get(LAST_ENDPOINT_KEY)
+                .unwrap_or_else(|| "127.0.0.1:3648".to_string()),
+            accept_port: controls
+                .settings
+                .get(LAST_ACCEPTED_PORT)
+                .unwrap_or_else(|| "3648".to_string()),
         }
     }
 

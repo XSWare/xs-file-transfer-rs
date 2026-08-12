@@ -16,6 +16,7 @@ use xs_rust_library::{
 };
 
 use crate::error_log::ErrorLog;
+use crate::settings::Settings;
 
 #[derive(Error, Display, Debug)]
 pub enum Error {
@@ -39,20 +40,26 @@ pub enum ConnectionStatus {
     Accepting,
 }
 
+/// settings key under which the last successfully used remote endpoint is persisted.
+pub const LAST_ENDPOINT_KEY: &str = "last_endpoint";
+pub const LAST_ACCEPTED_PORT: &str = "last_port";
+
 pub type Connection = EncryptedConnection<Aes256Crypto, PacketConnection>;
 
 pub struct ConnectionControl {
     connection: Arc<Mutex<Option<Connection>>>,
     status: Arc<Mutex<ConnectionStatus>>,
     error_log: Arc<ErrorLog>,
+    settings: Arc<Settings>,
 }
 
 impl ConnectionControl {
-    pub fn new(error_log: Arc<ErrorLog>) -> Self {
+    pub fn new(error_log: Arc<ErrorLog>, settings: Arc<Settings>) -> Self {
         Self {
             connection: Default::default(),
             status: Arc::new(Mutex::new(ConnectionStatus::Disconnected)),
             error_log,
+            settings,
         }
     }
 
@@ -66,6 +73,7 @@ impl ConnectionControl {
 
         let connection = self.connection.clone();
         let status = self.status.clone();
+        let settings = self.settings.clone();
 
         self.execute_connect_routine_async(move || {
             let stream = TcpStream::connect(addr)?;
@@ -77,6 +85,7 @@ impl ConnectionControl {
             )?;
             *connection.lock().unwrap() = Some(encrypted_connection);
             set_status(&status, ConnectionStatus::Connected);
+            settings.set(LAST_ENDPOINT_KEY, addr.to_string());
             Ok(())
         });
     }
@@ -91,6 +100,7 @@ impl ConnectionControl {
 
         let cloned_connection = self.connection.clone();
         let status = self.status.clone();
+        let settings = self.settings.clone();
 
         self.execute_connect_routine_async(move || {
             let listener = TcpListener::bind(format!("0.0.0.0:{}", port))?;
@@ -103,6 +113,7 @@ impl ConnectionControl {
             )?;
             *cloned_connection.lock().unwrap() = Some(encrypted_connection);
             set_status(&status, ConnectionStatus::Connected);
+            settings.set(LAST_ACCEPTED_PORT, port);
             Ok(())
         });
     }
