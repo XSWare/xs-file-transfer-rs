@@ -52,7 +52,7 @@ impl SendView {
         for file_path in file_paths {
             if !file_path.starts_with(parent_dir) {
                 self.error_log.log(format!(
-                    "file path \"{:?}\" does not contain passed path \"{:?}\"",
+                    "file path {:?} does not contain passed path {:?}",
                     file_path, parent_dir
                 ));
                 return;
@@ -75,7 +75,7 @@ impl SendView {
 
             self.error_log.log(format!(
                 "sending file {:?}",
-                Path::join(directory, sub_path)
+                file_path
             ));
             let packet_data =
                 match FileTransmission::create_packet_data_from_path(directory, sub_path) {
@@ -86,17 +86,21 @@ impl SendView {
                     }
                 };
 
-            self.connection_control
+            let res = self.connection_control
                 .get_connection()
                 .lock()
                 .unwrap()
                 .as_mut()
                 .unwrap()
-                .send(&packet_data)
-                .unwrap();
+                .send(&packet_data);
 
-            self.error_log
-                .log(format!("sent file {:?}", Path::join(directory, sub_path)));
+                match res {
+                    Ok(()) => self.error_log
+                .log(format!("sent file {:?}", file_path)),
+                    Err(error) => self.error_log
+                .log(format!("error while sending file {:?}:\n{}", file_path, error)),
+                }
+            
         }
     }
 }
