@@ -21,20 +21,10 @@ impl ErrorView {
             return ui.response();
         }
 
-        let collapsed_id = ui.make_persistent_id("error_output_collapsing");
-        let is_open =
-            egui::containers::collapsing_header::CollapsingState::load(ui.ctx(), collapsed_id)
-                .is_some_and(|state| state.is_open());
-
-        let header_text = if is_open {
-            format!("Errors ({})", self.error_log.error_count())
-        } else {
-            // Show the most recent error while collapsed.
-            self.error_log.last_error().unwrap_or_default()
-        };
+        let header_text = self.error_log.last_error().unwrap_or_default();
 
         egui::CollapsingHeader::new(header_text)
-            .id_salt(collapsed_id)
+            .id_salt("error view expander")
             .default_open(false)
             .show(ui, |ui| {
                 // Fill all the leftover space in the docked bottom panel.

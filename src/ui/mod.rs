@@ -50,7 +50,7 @@ impl eframe::App for MainWindow {
                 ui.separator();
                 ui.add(&mut self.receive_view);
 
-                egui::Panel::bottom("error_output").show(ui, |ui| {
+                egui::Panel::bottom("error_view").show(ui, |ui| {
                     ui.add(&mut self.error_view);
                 });
             });
