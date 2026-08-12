@@ -68,10 +68,7 @@ impl SendView {
                 parent_dir
             };
 
-            self.error_log.log(format!(
-                "sending file {:?}",
-                file_path
-            ));
+            self.error_log.log(format!("sending file {:?}", file_path));
             let packet_data =
                 match FileTransmission::create_packet_data_from_path(directory, sub_path) {
                     Ok(v) => v,
@@ -81,7 +78,8 @@ impl SendView {
                     }
                 };
 
-            let res = self.connection_control
+            let res = self
+                .connection_control
                 .get_connection()
                 .lock()
                 .unwrap()
@@ -89,13 +87,13 @@ impl SendView {
                 .unwrap()
                 .send(&packet_data);
 
-                match res {
-                    Ok(()) => self.error_log
-                .log(format!("sent file {:?}", file_path)),
-                    Err(error) => self.error_log
-                .log(format!("error while sending file {:?}:\n{}", file_path, error)),
-                }
-            
+            match res {
+                Ok(()) => self.error_log.log(format!("sent file {:?}", file_path)),
+                Err(error) => self.error_log.log(format!(
+                    "error while sending file {:?}:\n{}",
+                    file_path, error
+                )),
+            }
         }
     }
 }
