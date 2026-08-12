@@ -117,7 +117,7 @@ impl Widget for &mut ConnectionView {
                 response |= self.add_connection_management_widget(ui);
             }
 
-            if self.get_status() == ConnectionStatus::Disconnected {
+            if self.get_status() == ConnectionStatus::Connected {
                 let disconnect_button_response = ui.button("Disconnect");
                 if disconnect_button_response.clicked() {
                     self.on_disconnect_button_clicked();
