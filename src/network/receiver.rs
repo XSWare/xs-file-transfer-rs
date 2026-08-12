@@ -73,7 +73,7 @@ impl Receiver {
         let error_log = self.error_log.clone();
         let receive_dir = receive_dir.to_path_buf();
         let join_handle = thread::spawn(move || {
-            event.subscribe(Box::new(move |packet| {
+            let _subscription = event.subscribe(Box::new(move |packet| {
                 match FileTransmission::write_file_from_packet_data(&packet, &receive_dir) {
                     Ok(file_path) => error_log.log(format!(
                         "received file: \"{}\"",
