@@ -49,10 +49,8 @@ impl eframe::App for MainWindow {
                 ui.add(&mut self.send_view);
                 ui.separator();
                 ui.add(&mut self.receive_view);
-
-                egui::Panel::bottom("error_view").show(ui, |ui| {
-                    ui.add(&mut self.error_view);
-                });
+                ui.separator();
+                ui.add(&mut self.error_view);
             });
         });
     }
