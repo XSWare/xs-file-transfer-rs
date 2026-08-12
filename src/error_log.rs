@@ -1,24 +1,36 @@
 use std::sync::Mutex;
 
 pub struct ErrorLog {
-    last_error: Mutex<Vec<String>>,
+    errors: Mutex<Vec<String>>,
 }
 
 impl ErrorLog {
     pub fn log(&self, error: String) {
-        let mut last_error = self.last_error.lock().unwrap();
+        let mut last_error = self.errors.lock().unwrap();
         last_error.push(error);
     }
 
+    pub fn all_errors(&self) -> Vec<String> {
+        self.errors.lock().unwrap().clone()
+    }
+
     pub fn last_error(&self) -> Option<String> {
-        self.last_error.lock().unwrap().last().cloned()
+        self.errors.lock().unwrap().iter().last().cloned()
+    }
+
+    pub fn error_count(&self) -> usize {
+        self.errors.lock().unwrap().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.errors.lock().unwrap().is_empty()
     }
 }
 
 impl Default for ErrorLog {
     fn default() -> Self {
         Self {
-            last_error: Default::default(),
+            errors: Default::default(),
         }
     }
 }
