@@ -3,6 +3,7 @@ mod error_view;
 mod receive_view;
 pub use receive_view::LAST_RECEIVE_PATH;
 mod send_view;
+pub use send_view::LAST_SEND_PATH;
 
 use eframe::egui;
 

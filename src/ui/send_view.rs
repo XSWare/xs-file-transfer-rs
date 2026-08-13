@@ -1,20 +1,16 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use egui::Widget;
-use xs_rust_library::connection::Connection;
 
 use crate::{
     Controls,
     error_log::ErrorLog,
-    network::{connection_control::ConnectionControl, file_transmission::FileTransmission},
+    network::{connection_control::ConnectionControl, sender},
     settings::Settings,
 };
 
 /// settings key under which the last successfully sent file/directory is persisted.
-const LAST_SEND_PATH: &str = "last_send_path";
+pub const LAST_SEND_PATH: &str = "last_send_path";
 
 pub struct SendView {
     file_or_directory_path: String,
@@ -31,101 +27,6 @@ impl SendView {
             error_log: controls.error_log.clone(),
             settings: controls.settings.clone(),
         }
-    }
-
-    fn send(&self) -> bool {
-        let path = Path::new(&self.file_or_directory_path);
-        if !path.exists() {
-            self.error_log.log("file path does not exist".to_string());
-            return false;
-        }
-
-        let file_paths = match get_all_file_paths_in_directory(path) {
-            Ok(v) => v,
-            Err(error) => {
-                self.error_log.log(error.to_string());
-                return false;
-            }
-        };
-
-        let parent_dir = path.parent().unwrap();
-
-        for file_path in file_paths {
-            if !file_path.starts_with(parent_dir) {
-                self.error_log.log(format!(
-                    "file path {:?} does not contain passed path {:?}",
-                    file_path, parent_dir
-                ));
-                return false;
-            }
-
-            let sub_path = file_path.strip_prefix(parent_dir).unwrap();
-
-            let directory = if path.is_file() {
-                match file_path.parent() {
-                    Some(v) => v,
-                    None => {
-                        self.error_log
-                            .log("unable to extract directory".to_string());
-                        return false;
-                    }
-                }
-            } else {
-                parent_dir
-            };
-
-            self.error_log.log(format!("sending file {:?}", file_path));
-            let packet_data =
-                match FileTransmission::create_packet_data_from_path(directory, sub_path) {
-                    Ok(v) => v,
-                    Err(error) => {
-                        self.error_log.log(error.to_string());
-                        return false;
-                    }
-                };
-
-            let res = self
-                .connection_control
-                .get_connection()
-                .lock()
-                .unwrap()
-                .as_mut()
-                .unwrap()
-                .send(&packet_data);
-
-            match res {
-                Ok(()) => self.error_log.log(format!("sent file {:?}", file_path)),
-                Err(error) => {
-                    self.error_log.log(format!(
-                        "error while sending file {:?}:\n{}",
-                        file_path, error
-                    ));
-                    return false;
-                }
-            }
-        }
-
-        true
-    }
-}
-
-fn get_all_file_paths_in_directory(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
-    if dir.is_dir() {
-        let mut paths = Vec::new();
-
-        for entry in std::fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                paths.extend_from_slice(&get_all_file_paths_in_directory(&path)?);
-            } else {
-                paths.push(path);
-            }
-        }
-
-        Ok(paths)
-    } else {
-        Ok(vec![dir.to_path_buf()])
     }
 }
 
@@ -153,10 +54,12 @@ impl Widget for &mut SendView {
         if !self.file_or_directory_path.is_empty() && self.connection_control.is_connected() {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
-                if self.send() {
-                    self.settings
-                        .set(LAST_SEND_PATH, self.file_or_directory_path.clone());
-                }
+                sender::send(
+                    &self.file_or_directory_path,
+                    &self.connection_control,
+                    &self.settings,
+                    &self.error_log,
+                );
             }
 
             return edit_response | button_response;
