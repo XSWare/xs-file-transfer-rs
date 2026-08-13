@@ -55,10 +55,10 @@ impl Widget for &mut SendView {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
                 sender::send(
-                    &self.file_or_directory_path,
-                    &self.connection_control,
-                    &self.settings,
-                    &self.error_log,
+                    self.file_or_directory_path.clone(),
+                    self.connection_control.clone(),
+                    self.settings.clone(),
+                    self.error_log.clone(),
                 );
             }
 
