@@ -1,6 +1,9 @@
 mod connection_view;
 mod error_view;
 mod receive_view;
+use std::sync::Arc;
+
+use egui::IconData;
 pub use receive_view::LAST_RECEIVE_PATH;
 mod send_view;
 pub use send_view::LAST_SEND_PATH;
@@ -17,8 +20,21 @@ use crate::{
 
 pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+
+    let icon_data = include_bytes!("../../icon_32x32.png");
+
+    let icon = image::load_from_memory(icon_data)
+        .expect("failed to decode icon")
+        .into_rgba8();
+
+    let (width, height) = icon.dimensions();
+
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default(),
+        viewport: egui::ViewportBuilder::default().with_icon(Arc::new(IconData {
+            rgba: icon.into_raw(),
+            width,
+            height,
+        })),
         ..Default::default()
     };
     eframe::run_native(
