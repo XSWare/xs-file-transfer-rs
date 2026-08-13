@@ -13,84 +13,105 @@ use crate::{
     ui::LAST_SEND_PATH,
 };
 
-/// sends the file (or all files within the directory) at `file_or_directory_path`.
-///
-/// all heavy operations run on a separate thread so the UI stays responsive.
-pub fn send(
-    file_or_directory_path: String,
+pub struct Sender {
     connection_control: Arc<ConnectionControl>,
     settings: Arc<Settings>,
     error_log: Arc<ErrorLog>,
-) {
-    thread::spawn(move || {
-        let path = Path::new(&file_or_directory_path);
-        if !path.exists() {
-            error_log.log("file path does not exist".to_string());
-            return;
+}
+
+impl Sender {
+    pub fn new(
+        connection_control: Arc<ConnectionControl>,
+        settings: Arc<Settings>,
+        error_log: Arc<ErrorLog>,
+    ) -> Self {
+        Self {
+            connection_control,
+            settings,
+            error_log,
         }
+    }
 
-        let file_paths = match get_all_file_paths_in_directory(path) {
-            Ok(v) => v,
-            Err(error) => {
-                error_log.log(error.to_string());
-                return;
-            }
-        };
-
-        let parent_dir = path.parent().unwrap();
-
-        for file_path in file_paths {
-            if !file_path.starts_with(parent_dir) {
-                error_log.log(format!(
-                    "file path {:?} does not contain passed path {:?}",
-                    file_path, parent_dir
-                ));
+    /// sends the file (or all files within the directory) at `file_or_directory_path`.
+    ///
+    /// all heavy operations run on a separate thread so the UI stays responsive.
+    pub fn send(&self, file_or_directory_path: String) {
+        let connection_control = self.connection_control.clone();
+        let settings = self.settings.clone();
+        let error_log = self.error_log.clone();
+        thread::spawn(move || {
+            let path = Path::new(&file_or_directory_path);
+            if !path.exists() {
+                error_log.log("file path does not exist".to_string());
                 return;
             }
 
-            let sub_path = file_path.strip_prefix(parent_dir).unwrap();
-
-            let directory = if path.is_file() {
-                match file_path.parent() {
-                    Some(v) => v,
-                    None => {
-                        error_log.log("unable to extract directory".to_string());
-                        return;
-                    }
-                }
-            } else {
-                parent_dir
-            };
-
-            error_log.log(format!("sending file {:?}", file_path));
-            let packet_data =
-                match FileTransmission::create_packet_data_from_path(directory, sub_path) {
-                    Ok(v) => v,
-                    Err(error) => {
-                        error_log.log(error.to_string());
-                        return;
-                    }
-                };
-
-            let res = connection_control
-                .get_connection()
-                .lock()
-                .unwrap()
-                .as_mut()
-                .unwrap()
-                .send(&packet_data);
-
-            match res {
-                Ok(()) => error_log.log(format!("sent file {:?}", file_path)),
+            let file_paths = match get_all_file_paths_in_directory(path) {
+                Ok(v) => v,
                 Err(error) => {
-                    error_log.log(format!("error while sending file {:?}:\n{}", file_path, error));
+                    error_log.log(error.to_string());
                     return;
                 }
-            }
-        }
+            };
 
-        settings.set(LAST_SEND_PATH, file_or_directory_path);
-    });
+            let parent_dir = path.parent().unwrap();
+
+            for file_path in file_paths {
+                if !file_path.starts_with(parent_dir) {
+                    error_log.log(format!(
+                        "file path {:?} does not contain passed path {:?}",
+                        file_path, parent_dir
+                    ));
+                    return;
+                }
+
+                let sub_path = file_path.strip_prefix(parent_dir).unwrap();
+
+                let directory = if path.is_file() {
+                    match file_path.parent() {
+                        Some(v) => v,
+                        None => {
+                            error_log.log("unable to extract directory".to_string());
+                            return;
+                        }
+                    }
+                } else {
+                    parent_dir
+                };
+
+                error_log.log(format!("sending file {:?}", file_path));
+                let packet_data =
+                    match FileTransmission::create_packet_data_from_path(directory, sub_path) {
+                        Ok(v) => v,
+                        Err(error) => {
+                            error_log.log(error.to_string());
+                            return;
+                        }
+                    };
+
+                let res = connection_control
+                    .get_connection()
+                    .lock()
+                    .unwrap()
+                    .as_mut()
+                    .unwrap()
+                    .send(&packet_data);
+
+                match res {
+                    Ok(()) => error_log.log(format!("sent file {:?}", file_path)),
+                    Err(error) => {
+                        error_log.log(format!(
+                            "error while sending file {:?}:\n{}",
+                            file_path, error
+                        ));
+                        return;
+                    }
+                }
+            }
+
+            settings.set(LAST_SEND_PATH, file_or_directory_path);
+        });
+    }
 }
 
 fn get_all_file_paths_in_directory(dir: &Path) -> std::io::Result<Vec<PathBuf>> {

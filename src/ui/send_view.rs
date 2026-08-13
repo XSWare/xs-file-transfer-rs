@@ -4,9 +4,7 @@ use egui::Widget;
 
 use crate::{
     Controls,
-    error_log::ErrorLog,
-    network::{connection_control::ConnectionControl, sender},
-    settings::Settings,
+    network::{connection_control::ConnectionControl, sender::Sender},
 };
 
 /// settings key under which the last successfully sent file/directory is persisted.
@@ -14,18 +12,16 @@ pub const LAST_SEND_PATH: &str = "last_send_path";
 
 pub struct SendView {
     file_or_directory_path: String,
+    sender: Arc<Sender>,
     connection_control: Arc<ConnectionControl>,
-    error_log: Arc<ErrorLog>,
-    settings: Arc<Settings>,
 }
 
 impl SendView {
     pub fn new(controls: &Controls) -> Self {
         Self {
             file_or_directory_path: controls.settings.get(LAST_SEND_PATH).unwrap_or_default(),
+            sender: controls.sender.clone(),
             connection_control: controls.connection_control.clone(),
-            error_log: controls.error_log.clone(),
-            settings: controls.settings.clone(),
         }
     }
 }
@@ -54,12 +50,7 @@ impl Widget for &mut SendView {
         if !self.file_or_directory_path.is_empty() && self.connection_control.is_connected() {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
-                sender::send(
-                    self.file_or_directory_path.clone(),
-                    self.connection_control.clone(),
-                    self.settings.clone(),
-                    self.error_log.clone(),
-                );
+                self.sender.send(self.file_or_directory_path.clone());
             }
 
             return edit_response | button_response;

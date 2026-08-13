@@ -10,10 +10,12 @@ use std::sync::Arc;
 use crate::error_log::ErrorLog;
 use crate::network::connection_control::ConnectionControl;
 use crate::network::receiver::Receiver;
+use crate::network::sender::Sender;
 use crate::settings::Settings;
 
 pub struct Controls {
     connection_control: Arc<ConnectionControl>,
+    sender: Arc<Sender>,
     receiver: Arc<Receiver>,
     error_log: Arc<ErrorLog>,
     settings: Arc<Settings>,
@@ -24,6 +26,11 @@ pub fn run() {
     let settings = Arc::new(Settings::load());
     let connection_control = Arc::new(ConnectionControl::new(error_log.clone(), settings.clone()));
     let controls = Controls {
+        sender: Arc::new(Sender::new(
+            connection_control.clone(),
+            settings.clone(),
+            error_log.clone(),
+        )),
         receiver: Arc::new(Receiver::new(
             connection_control.clone(),
             settings.clone(),
