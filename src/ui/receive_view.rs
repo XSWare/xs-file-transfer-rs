@@ -57,7 +57,13 @@ impl Widget for &mut ReceiveView {
         let edit_response = ui
             .horizontal(|ui| {
                 ui.label("Receive directory: ");
-                ui.text_edit_singleline(&mut self.receive_directory_path)
+                let edit_response = ui.text_edit_singleline(&mut self.receive_directory_path);
+                if ui.button("Browse...").clicked() {
+                    if let Some(directory) = rfd::FileDialog::new().pick_folder() {
+                        self.receive_directory_path = directory.to_string_lossy().to_string();
+                    }
+                }
+                edit_response
             })
             .inner;
 

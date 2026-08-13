@@ -124,7 +124,18 @@ impl Widget for &mut SendView {
         let edit_response = ui
             .horizontal(|ui| {
                 ui.label("File or directory path: ");
-                ui.text_edit_singleline(&mut self.file_or_directory_path)
+                let edit_response = ui.text_edit_singleline(&mut self.file_or_directory_path);
+                if ui.button("Browse file...").clicked() {
+                    if let Some(file) = rfd::FileDialog::new().pick_file() {
+                        self.file_or_directory_path = file.to_string_lossy().to_string();
+                    }
+                }
+                if ui.button("Browse folder...").clicked() {
+                    if let Some(directory) = rfd::FileDialog::new().pick_folder() {
+                        self.file_or_directory_path = directory.to_string_lossy().to_string();
+                    }
+                }
+                edit_response
             })
             .inner;
 
