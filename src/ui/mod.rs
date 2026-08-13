@@ -3,7 +3,7 @@ mod error_view;
 mod receive_view;
 use std::sync::Arc;
 
-use egui::IconData;
+use egui::{Context, IconData};
 pub use receive_view::LAST_RECEIVE_PATH;
 mod send_view;
 pub use send_view::LAST_SEND_PATH;
@@ -44,6 +44,8 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
             controls
                 .connection_control
                 .set_egui_context(cc.egui_ctx.clone());
+            controls.sender.set_egui_context(cc.egui_ctx.clone());
+            controls.receiver.set_egui_context(cc.egui_ctx.clone());
             Ok(Box::new(MainWindow {
                 connection_view: ConnectionView::new(controls),
                 send_view: SendView::new(controls),
@@ -52,6 +54,12 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
             }))
         }),
     )
+}
+
+pub fn request_repaint(egui_context: &Option<Context>) {
+    if let Some(ctx) = egui_context {
+        ctx.request_repaint();
+    }
 }
 
 struct MainWindow {

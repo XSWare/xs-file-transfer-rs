@@ -16,8 +16,8 @@ use xs_rust_library::{
     packet_connection::PacketConnection,
 };
 
-use crate::error_log::ErrorLog;
 use crate::settings::Settings;
+use crate::{error_log::ErrorLog, ui::request_repaint};
 
 #[derive(Error, Display, Debug)]
 pub enum Error {
@@ -204,10 +204,4 @@ fn get_status(status: &Arc<Mutex<ConnectionStatus>>) -> ConnectionStatus {
 
 fn set_status(status: &Arc<Mutex<ConnectionStatus>>, new_status: ConnectionStatus) {
     *status.lock().unwrap() = new_status
-}
-
-fn request_repaint(egui_context: &Option<EguiContext>) {
-    if let Some(ctx) = egui_context {
-        ctx.request_repaint();
-    }
 }
