@@ -18,10 +18,6 @@ impl ErrorLog {
         self.errors.lock().unwrap().iter().last().cloned()
     }
 
-    pub fn error_count(&self) -> usize {
-        self.errors.lock().unwrap().len()
-    }
-
     pub fn is_empty(&self) -> bool {
         self.errors.lock().unwrap().is_empty()
     }
