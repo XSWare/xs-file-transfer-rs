@@ -24,7 +24,11 @@ pub fn run() {
     let settings = Arc::new(Settings::load());
     let connection_control = Arc::new(ConnectionControl::new(error_log.clone(), settings.clone()));
     let controls = Controls {
-        receiver: Arc::new(Receiver::new(connection_control.clone(), error_log.clone())),
+        receiver: Arc::new(Receiver::new(
+            connection_control.clone(),
+            settings.clone(),
+            error_log.clone(),
+        )),
         connection_control,
         error_log,
         settings,

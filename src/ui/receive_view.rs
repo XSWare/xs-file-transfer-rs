@@ -11,6 +11,9 @@ use crate::{
     network::{connection_control::ConnectionControl, receiver::Receiver},
 };
 
+/// settings key under which the last successfully receive directory is persisted.
+pub const LAST_RECEIVE_PATH: &str = "last_receive_path";
+
 pub struct ReceiveView {
     receive_directory_path: String,
     receiver: Arc<Receiver>,
@@ -21,10 +24,12 @@ pub struct ReceiveView {
 impl ReceiveView {
     pub fn new(controls: &Controls) -> Self {
         Self {
-            receive_directory_path: get_default_directory()
-                .into_os_string()
-                .into_string()
-                .unwrap(),
+            receive_directory_path: controls.settings.get(LAST_RECEIVE_PATH).unwrap_or(
+                get_default_directory()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap(),
+            ),
             connection_control: controls.connection_control.clone(),
             receiver: controls.receiver.clone(),
             error_log: controls.error_log.clone(),

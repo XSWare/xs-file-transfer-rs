@@ -13,6 +13,8 @@ use xs_rust_library::{
 use crate::{
     error_log::ErrorLog,
     network::{connection_control::ConnectionControl, file_transmission::FileTransmission},
+    settings::Settings,
+    ui::LAST_RECEIVE_PATH,
 };
 
 #[derive(Error, Display, Debug)]
@@ -34,14 +36,20 @@ pub enum ReceiveLoopStatus {
 
 pub struct Receiver {
     connection_control: Arc<ConnectionControl>,
+    settings: Arc<Settings>,
     error_log: Arc<ErrorLog>,
     receive_loop: Mutex<Option<ReceiveLoop>>,
 }
 
 impl Receiver {
-    pub fn new(connection_control: Arc<ConnectionControl>, error_log: Arc<ErrorLog>) -> Self {
+    pub fn new(
+        connection_control: Arc<ConnectionControl>,
+        settings: Arc<Settings>,
+        error_log: Arc<ErrorLog>,
+    ) -> Self {
         Self {
             connection_control,
+            settings,
             error_log,
             receive_loop: Mutex::new(None),
         }
@@ -62,6 +70,7 @@ impl Receiver {
             .ok_or(Error::NoConnection)?
             .try_clone()?;
 
+        let settings = self.settings.clone();
         let error_log = self.error_log.clone();
         let receive_dir = receive_dir.to_path_buf();
         let packet_handler =
@@ -69,10 +78,13 @@ impl Receiver {
                 &packet,
                 &receive_dir,
             ) {
-                Ok(file_path) => error_log.log(format!(
-                    "received file: \"{}\"",
-                    file_path.to_str().unwrap()
-                )),
+                Ok(file_path) => {
+                    settings.set(LAST_RECEIVE_PATH, receive_dir.to_string_lossy().to_string());
+                    error_log.log(format!(
+                        "received file: \"{}\"",
+                        file_path.to_str().unwrap()
+                    ));
+                }
                 Err(error) => {
                     error_log.log(format!("error during receive: {}", error));
                     return;

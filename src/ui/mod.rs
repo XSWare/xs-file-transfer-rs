@@ -1,6 +1,7 @@
 mod connection_view;
 mod error_view;
 mod receive_view;
+pub use receive_view::LAST_RECEIVE_PATH;
 mod send_view;
 
 use eframe::egui;

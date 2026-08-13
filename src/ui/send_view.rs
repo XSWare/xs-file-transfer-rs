@@ -10,35 +10,41 @@ use crate::{
     Controls,
     error_log::ErrorLog,
     network::{connection_control::ConnectionControl, file_transmission::FileTransmission},
+    settings::Settings,
 };
+
+/// settings key under which the last successfully sent file/directory is persisted.
+const LAST_SEND_PATH: &str = "last_send_path";
 
 pub struct SendView {
     file_or_directory_path: String,
     connection_control: Arc<ConnectionControl>,
     error_log: Arc<ErrorLog>,
+    settings: Arc<Settings>,
 }
 
 impl SendView {
     pub fn new(controls: &Controls) -> Self {
         Self {
-            file_or_directory_path: String::new(),
+            file_or_directory_path: controls.settings.get(LAST_SEND_PATH).unwrap_or_default(),
             connection_control: controls.connection_control.clone(),
             error_log: controls.error_log.clone(),
+            settings: controls.settings.clone(),
         }
     }
 
-    fn send(&self) {
+    fn send(&self) -> bool {
         let path = Path::new(&self.file_or_directory_path);
         if !path.exists() {
             self.error_log.log("file path does not exist".to_string());
-            return;
+            return false;
         }
 
         let file_paths = match get_all_file_paths_in_directory(path) {
             Ok(v) => v,
             Err(error) => {
                 self.error_log.log(error.to_string());
-                return;
+                return false;
             }
         };
 
@@ -50,7 +56,7 @@ impl SendView {
                     "file path {:?} does not contain passed path {:?}",
                     file_path, parent_dir
                 ));
-                return;
+                return false;
             }
 
             let sub_path = file_path.strip_prefix(parent_dir).unwrap();
@@ -61,7 +67,7 @@ impl SendView {
                     None => {
                         self.error_log
                             .log("unable to extract directory".to_string());
-                        return;
+                        return false;
                     }
                 }
             } else {
@@ -74,7 +80,7 @@ impl SendView {
                     Ok(v) => v,
                     Err(error) => {
                         self.error_log.log(error.to_string());
-                        return;
+                        return false;
                     }
                 };
 
@@ -89,12 +95,17 @@ impl SendView {
 
             match res {
                 Ok(()) => self.error_log.log(format!("sent file {:?}", file_path)),
-                Err(error) => self.error_log.log(format!(
-                    "error while sending file {:?}:\n{}",
-                    file_path, error
-                )),
+                Err(error) => {
+                    self.error_log.log(format!(
+                        "error while sending file {:?}:\n{}",
+                        file_path, error
+                    ));
+                    return false;
+                }
             }
         }
+
+        true
     }
 }
 
@@ -142,7 +153,10 @@ impl Widget for &mut SendView {
         if !self.file_or_directory_path.is_empty() && self.connection_control.is_connected() {
             let button_response = ui.button("Send files");
             if button_response.clicked() {
-                self.send();
+                if self.send() {
+                    self.settings
+                        .set(LAST_SEND_PATH, self.file_or_directory_path.clone());
+                }
             }
 
             return edit_response | button_response;
