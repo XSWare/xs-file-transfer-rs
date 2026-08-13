@@ -168,12 +168,12 @@ impl ConnectionControl {
     /// executes a connect routine in a separate thread and sets status and error log accordingly
     fn execute_connect_routine_async(
         &self,
-        f: impl FnOnce() -> Result<(), Error> + Send + 'static,
+        connect_routine: impl FnOnce() -> Result<(), Error> + Send + 'static,
     ) {
         let status = self.status.clone();
         let error_log = self.error_log.clone();
         thread::spawn(move || {
-            let res = f();
+            let res = connect_routine();
             if let Err(error) = res {
                 set_status(&status, ConnectionStatus::Disconnected);
                 error_log.log(error.to_string());
