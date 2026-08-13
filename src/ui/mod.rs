@@ -23,7 +23,10 @@ pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
     eframe::run_native(
         "xsFileTransfer",
         options,
-        Box::new(|_cc| {
+        Box::new(|cc| {
+            controls
+                .connection_control
+                .set_egui_context(cc.egui_ctx.clone());
             Ok(Box::new(MainWindow {
                 connection_view: ConnectionView::new(controls),
                 send_view: SendView::new(controls),

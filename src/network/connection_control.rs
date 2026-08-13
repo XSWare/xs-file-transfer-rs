@@ -5,6 +5,7 @@ use std::{
 };
 
 use displaydoc::Display;
+use egui::Context as EguiContext;
 use thiserror::Error;
 
 use xs_rust_library::{
@@ -51,6 +52,9 @@ pub struct ConnectionControl {
     status: Arc<Mutex<ConnectionStatus>>,
     error_log: Arc<ErrorLog>,
     settings: Arc<Settings>,
+    /// egui context used to force a UI repaint once the connection status
+    /// changes on a background thread.
+    egui_context: Mutex<Option<EguiContext>>,
 }
 
 impl ConnectionControl {
@@ -60,7 +64,14 @@ impl ConnectionControl {
             status: Arc::new(Mutex::new(ConnectionStatus::Disconnected)),
             error_log,
             settings,
+            egui_context: Mutex::new(None),
         }
+    }
+
+    /// hands the egui context to this control so it can request a UI repaint
+    /// after a connection routine finishes on a background thread.
+    pub fn set_egui_context(&self, egui_context: EguiContext) {
+        *self.egui_context.lock().unwrap() = Some(egui_context);
     }
 
     pub fn connect(&self, addr: SocketAddr) {
@@ -172,12 +183,17 @@ impl ConnectionControl {
     ) {
         let status = self.status.clone();
         let error_log = self.error_log.clone();
+        let egui_context = self.egui_context.lock().unwrap().clone();
+
         thread::spawn(move || {
             let res = connect_routine();
             if let Err(error) = res {
                 set_status(&status, ConnectionStatus::Disconnected);
                 error_log.log(error.to_string());
             }
+
+            // the status changed on this background thread, so force a UI repaint.
+            request_repaint(&egui_context);
         });
     }
 }
@@ -188,4 +204,10 @@ fn get_status(status: &Arc<Mutex<ConnectionStatus>>) -> ConnectionStatus {
 
 fn set_status(status: &Arc<Mutex<ConnectionStatus>>, new_status: ConnectionStatus) {
     *status.lock().unwrap() = new_status
+}
+
+fn request_repaint(egui_context: &Option<EguiContext>) {
+    if let Some(ctx) = egui_context {
+        ctx.request_repaint();
+    }
 }
