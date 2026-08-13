@@ -21,7 +21,7 @@ use crate::{
 pub fn show(controls: &Controls) -> Result<(), eframe::Error> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
-    let icon_data = include_bytes!("../../icon_32x32.png");
+    let icon_data = include_bytes!("../../icon_resources/icon_32x32.png");
 
     let icon = image::load_from_memory(icon_data)
         .expect("failed to decode icon")
