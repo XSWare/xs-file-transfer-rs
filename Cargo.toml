@@ -16,3 +16,8 @@ env_logger = "*"
 thiserror = "*"
 displaydoc = "*"
 image = "*"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
